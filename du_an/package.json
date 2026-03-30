@@ -1,0 +1,20 @@
+{
+  "name": "weather-app-fullstack",
+  "version": "1.0.0",
+  "description": "Weather App - Full Stack (React + Express + MongoDB)",
+  "private": true,
+  "scripts": {
+    "install-all": "cd frontend && npm install && cd ../backend && npm install",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "npm run dev"
+  },
+  "keywords": ["weather", "react", "express", "mongodb", "fullstack"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

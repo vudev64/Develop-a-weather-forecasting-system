@@ -1,0 +1,146 @@
+.dashboard {
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  background-color: #1f2937;
+  color: white;
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-info {
+  font-size: 16px;
+}
+
+.logout-button {
+  padding: 8px 20px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background-color: #dc2626;
+}
+
+.weather-result {
+  background-color: white;
+  padding: 40px;
+  border-radius: 10px;
+  text-align: center;
+  margin: 30px 0;
+  border: 2px dashed #e5e7eb;
+  min-height: 200px;
+}
+
+.weather-result p {
+  color: #6b7280;
+  font-size: 18px;
+}
+
+.error-message {
+  color: #ef4444;
+  background-color: #fee2e2;
+  padding: 15px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.weather-info {
+  animation: fadeIn 0.5s ease-in;
+}
+
+.weather-info h3 {
+  font-size: 32px;
+  color: #1f2937;
+  margin-bottom: 20px;
+}
+
+.weather-details {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.temperature {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.temperature img {
+  width: 100px;
+  height: 100px;
+}
+
+.temp {
+  font-size: 56px;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+.description {
+  font-size: 24px;
+  color: #6b7280;
+  text-transform: capitalize;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  width: 100%;
+  max-width: 500px;
+  margin-top: 20px;
+}
+
+.info-item {
+  background-color: #f3f4f6;
+  padding: 15px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.info-item .label {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.info-item .value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
+  }
+
+  .logout-button {
+    width: 100%;
+  }
+}

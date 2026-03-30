@@ -1,0 +1,278 @@
+/* Weather Layer Control Styles - Sidebar Menu like Windy.com */
+
+.weather-layer-control {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1001;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.weather-layer-control.closed .layer-menu {
+  display: none;
+}
+
+/* Header */
+.layer-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px 8px 0 0;
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.menu-toggle-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.menu-toggle-btn:hover {
+  transform: scale(1.1);
+}
+
+.layer-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  letter-spacing: 0.5px;
+}
+
+/* Menu Container */
+.layer-menu {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 0 0 8px 8px;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: none;
+  min-width: 300px;
+  max-height: 600px;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Layers List */
+.layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px;
+}
+
+.layer-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 12px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(0, 0, 0, 0.5);
+  margin-bottom: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.layer-item:hover {
+  background: rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.layer-item.active {
+  background: rgba(100, 200, 255, 0.3);
+  border-color: rgba(100, 200, 255, 0.5);
+}
+
+/* Layer Content */
+.layer-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  user-select: none;
+}
+
+.layer-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  font-size: 22px;
+  flex-shrink: 0;
+  order: 2;
+}
+
+.layer-item:hover .layer-icon {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.layer-item.active .layer-icon {
+  background: rgba(100, 200, 255, 0.3);
+}
+
+/* Layer Info */
+.layer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  order: 1;
+}
+
+.layer-name {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  word-break: break-word;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px 12px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Layer Checkbox */
+.layer-checkbox {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.layer-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #64c8ff;
+}
+
+/* Wind Style Section */
+.wind-style-section {
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+}
+
+.section-title {
+  display: block;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.wind-style-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.radio-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.radio-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #64c8ff;
+}
+
+/* Opacity Section */
+.opacity-section {
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+}
+
+.opacity-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.opacity-control input[type="range"] {
+  flex: 1;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #64c8ff;
+}
+
+.opacity-value {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Scrollbar */
+.layer-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.layer-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layer-menu::-webkit-scrollbar-thumb {
+  background: rgba(100, 200, 255, 0.3);
+  border-radius: 3px;
+}
+
+.layer-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 200, 255, 0.5);
+}
+
+/* Responsive */
+
+@media (max-width: 768px) {
+  .weather-layer-control {
+    top: 60px;
+    right: 10px;
+  }
+
+  .layer-menu {
+    min-width: 250px;
+  }
+
+  .layer-header h3 {
+    font-size: 16px;
+  }
+
+  .layer-name {
+    font-size: 13px;
+  }
+}
+

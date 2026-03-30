@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thông Tin Các Loại Thời Tiết</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f9ff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            background-color: #6366f1;
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .scroll-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .scroll-track {
+            flex: 1;
+            height: 12px;
+            background: #ddd;
+            border-radius: 6px;
+            position: relative;
+            cursor: pointer;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .scroll-thumb {
+            position: absolute;
+            height: 100%;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            border-radius: 6px;
+            cursor: grab;
+            transition: background 0.2s;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        .scroll-thumb:active {
+            cursor: grabbing;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            box-shadow: 0 2px 12px rgba(99, 102, 241, 0.5);
+        }
+
+        .scroll-button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+
+        .scroll-button:hover {
+            background: #4f46e5;
+        }
+
+        .weather-grid {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            overflow-x: auto;
+            padding: 10px 0;
+            scroll-behavior: smooth;
+            flex-wrap: nowrap;
+        }
+
+        .weather-grid::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .weather-grid::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 5px;
+        }
+
+        .weather-grid::-webkit-scrollbar-thumb {
+            background: #6366f1;
+            border-radius: 5px;
+        }
+
+        .weather-grid::-webkit-scrollbar-thumb:hover {
+            background: #4f46e5;
+        }
+
+        .weather-card-wrapper {
+            flex: 0 0 auto;
+            min-width: 350px;
+        }
+
+        .weather-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            cursor: grab;
+            position: relative;
+            user-select: none;
+            transition: box-shadow 0.2s ease;
+            width: 100%;
+        }
+
+        .weather-card:hover {
+            border-color: #6366f1;
+            box-shadow: 0 8px 16px rgba(99, 102, 241, 0.2);
+        }
+
+        .weather-card.dragging {
+            opacity: 0.7;
+            cursor: grabbing;
+            box-shadow: 0 12px 24px rgba(99, 102, 241, 0.4);
+            z-index: 1000;
+        }
+
+        .weather-card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .weather-number {
+            width: 40px;
+            height: 40px;
+            background-color: #6366f1;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .weather-card h2 {
+            font-size: 1.5rem;
+            color: #1f2937;
+        }
+
+        .weather-details {
+            display: none;
+            margin-top: 15px;
+        }
+
+        .weather-card.active .weather-details {
+            display: block;
+        }
+
+        .impact-section,
+        .solution-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f9fafb;
+        }
+
+        .impact-section {
+            border-left: 4px solid #ef4444;
+        }
+
+        .solution-section {
+            border-left: 4px solid #10b981;
+        }
+
+        .weather-details h3 {
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            color: #374151;
+        }
+
+        .weather-details ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .weather-details li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .impact-section li::before {
+            content: '•';
+            color: #ef4444;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .solution-section li::before {
+            content: '✓';
+            color: #10b981;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .card-footer {
+            text-align: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .click-hint {
+            color: #6366f1;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .footer-note {
+            text-align: center;
+            padding: 20px;
+            background-color: #fef3c7;
+            border-radius: 10px;
+            border: 2px solid #fbbf24;
+            margin-bottom: 20px;
+        }
+
+        .footer-note p {
+            color: #78350f;
+        }
+
+        .back-button {
+            display: block;
+            text-align: center;
+            margin: 0 auto;
+            padding: 12px 30px;
+            background-color: #6366f1;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            max-width: 200px;
+        }
+
+        .back-button:hover {
+            background-color: #4f46e5;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .weather-grid {
+                gap: 10px;
+                max-height: 1000px;
+            }
+
+            .weather-card-wrapper {
+                flex: 0 0 calc(100% - 0px);
+                min-width: 100%;
+            }
+
+            .weather-number {
+                width: 35px;
+                height: 35px;
+                font-size: 1rem;
+            }
+
+            .weather-card h2 {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Các Loại Thời Tiết & Cách Phòng Tránh</h1>
+            <p>Tìm hiểu về các hiện tượng thời tiết nguy hiểm</p>
+        </div>
+
+        <div class="scroll-bar-container">
+            <button class="scroll-button" id="scrollLeftBtn">◀</button>
+            <div class="scroll-track" id="scrollTrack">
+                <div class="scroll-thumb" id="scrollThumb"></div>
+            </div>
+            <button class="scroll-button" id="scrollRightBtn">▶</button>
+        </div>
+
+        <div class="weather-grid" id="weatherGrid"></div>
+
+        <div class="footer-note">
+            <p><strong>Lưu ý:</strong> Luôn theo dõi dự báo thời tiết và làm theo hướng dẫn của chính quyền địa phương</p>
+        </div>
+
+        <a href="/" class="back-button">Quay lại</a>
+    </div>
+
+    <script>
+        var weatherData = [
+            {
+                id: 1,
+                name: 'Mưa Bão',
+                impact: [
+                    'Gây ngập lụt đường phố và khu dân cư',
+                    'Sạt lở đất, lũ quét ở vùng núi',
+                    'Thiệt hại về nông nghiệp',
+                    'Đứt gãy điện, nước, giao thông',
+                    'Ảnh hưởng sức khỏe'
+                ],
+                solutions: [
+                    'Theo dõi dự báo thời tiết thường xuyên',
+                    'Chuẩn bị lương thực, nước uống, đèn pin',
+                    'Gia cố nhà cửa',
+                    'Không ra ngoài khi bão đang hoành hành',
+                    'Tránh xa cây cối, biển hiệu',
+                    'Di dời đến nơi an toàn nếu cần'
+                ]
+            },
+            {
+                id: 2,
+                name: 'Nắng Nóng',
+                impact: [
+                    'Gây mất nước, suy nhược cơ thể',
+                    'Nguy cơ say nắng, say nóng',
+                    'Tăng nguy cơ cháy nổ',
+                    'Hạn hán, thiếu nước',
+                    'Ảnh hưởng năng suất lao động'
+                ],
+                solutions: [
+                    'Uống đủ nước, giữ cơ thể mát',
+                    'Hạn chế ra ngoài giữa trưa',
+                    'Mặc quần áo thoáng mát, đội mũ',
+                    'Sử dụng kem chống nắng',
+                    'Kiểm tra thiết bị điện',
+                    'Dự trữ nước sinh hoạt'
+                ]
+            },
+            {
+                id: 3,
+                name: 'Lũ Lụt',
+                impact: [
+                    'Ngập úng nhà cửa, tài sản',
+                    'Giao thông tê liệt',
+                    'Dịch bệnh dễ bùng phát',
+                    'Mất mùa',
+                    'Đe dọa tính mạng'
+                ],
+                solutions: [
+                    'Di dời đến nơi cao, an toàn',
+                    'Không đi qua vùng nước lũ',
+                    'Chuẩn bị phao, áo phao',
+                    'Ngắt nguồn điện trong nhà',
+                    'Dự trữ thực phẩm, nước sạch',
+                    'Giữ liên lạc với chính quyền'
+                ]
+            },
+            {
+                id: 4,
+                name: 'Giông Bão',
+                impact: [
+                    'Sét đánh nguy hiểm',
+                    'Gió mạnh làm đổ cây',
+                    'Mưa lớn gây ngập úng',
+                    'Tai nạn giao thông',
+                    'Hư hại đường dây điện'
+                ],
+                solutions: [
+                    'Tắt thiết bị điện, rút phích cắm',
+                    'Không trú mưa dưới gốc cây',
+                    'Tránh xa cột điện, kim loại',
+                    'Không tắm, không dùng điện thoại sạc',
+                    'Ở trong nhà hoặc xe ô tô',
+                    'Tránh xa cửa sổ'
+                ]
+            },
+            {
+                id: 5,
+                name: 'Hạn Hán',
+                impact: [
+                    'Thiếu nước sinh hoạt',
+                    'Mất mùa, giảm sản lượng',
+                    'Chăn nuôi gặp khó khăn',
+                    'Cháy rừng dễ xảy ra',
+                    'Ảnh hưởng kinh tế'
+                ],
+                solutions: [
+                    'Tiết kiệm nước tối đa',
+                    'Dự trữ nước mưa',
+                    'Sử dụng giống cây chịu hạn',
+                    'Tưới tiêu hợp lý',
+                    'Không đốt rừng',
+                    'Hợp tác quản lý nguồn nước'
+                ]
+            },
+            {
+                id: 6,
+                name: 'Sương Mù',
+                impact: [
+                    'Tầm nhìn hạn chế',
+                    'Tai nạn giao thông',
+                    'Chuyến bay bị hoãn',
+                    'Độ ẩm cao gây khó chịu',
+                    'Hệ hô hấp bị ảnh hưởng'
+                ],
+                solutions: [
+                    'Lái xe chậm, bật đèn sương mù',
+                    'Giữ khoảng cách an toàn',
+                    'Không vượt xe khi tầm nhìn kém',
+                    'Đeo khẩu trang',
+                    'Hạn chế hoạt động ngoài trời',
+                    'Kiểm tra lịch bay trước'
+                ]
+            }
+        ];
+
+        var grid = document.getElementById('weatherGrid');
+        var scrollThumb = document.getElementById('scrollThumb');
+        var scrollTrack = document.getElementById('scrollTrack');
+        var scrollLeftBtn = document.getElementById('scrollLeftBtn');
+        var scrollRightBtn = document.getElementById('scrollRightBtn');
+
+        function renderWeatherCards() {
+            for (var i = 0; i < weatherData.length; i++) {
+                var weather = weatherData[i];
+                var wrapper = document.createElement('div');
+                wrapper.className = 'weather-card-wrapper';
+                
+                var card = document.createElement('div');
+                card.className = 'weather-card';
+                card.onclick = function(e) {
+                    if (!this.classList.contains('dragging')) {
+                        toggleCard(this);
+                    }
+                };
+                
+                var impactList = '';
+                for (var j = 0; j < weather.impact.length; j++) {
+                    impactList += '<li>' + weather.impact[j] + '</li>';
+                }
+                
+                var solutionList = '';
+                for (var k = 0; k < weather.solutions.length; k++) {
+                    solutionList += '<li>' + weather.solutions[k] + '</li>';
+                }
+                
+                card.innerHTML = 
+                    '<div class="weather-card-header">' +
+                        '<span class="weather-number">' + weather.id + '</span>' +
+                        '<h2>' + weather.name + '</h2>' +
+                    '</div>' +
+                    '<div class="weather-details">' +
+                        '<div class="impact-section">' +
+                            '<h3>Sức Ảnh Hưởng:</h3>' +
+                            '<ul>' + impactList + '</ul>' +
+                        '</div>' +
+                        '<div class="solution-section">' +
+                            '<h3>Cách Phòng Tránh:</h3>' +
+                            '<ul>' + solutionList + '</ul>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="card-footer">' +
+                        '<span class="click-hint">Nhấn để xem ▼</span>' +
+                    '</div>';
+                
+                wrapper.appendChild(card);
+                grid.appendChild(wrapper);
+                addDragFunctionality(card);
+            }
+            updateScrollThumb();
+        }
+
+        function addDragFunctionality(card) {
+            var isDragging = false;
+            var offsetX = 0;
+            var offsetY = 0;
+
+            card.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                card.classList.add('dragging');
+                
+                var rect = card.getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                
+                if (card.style.position !== 'fixed') {
+                    card.style.position = 'fixed';
+                }
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging) {
+                    card.style.left = (e.clientX - offsetX) + 'px';
+                    card.style.top = (e.clientY - offsetY) + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    card.classList.remove('dragging');
+                }
+            });
+        }
+
+        function updateScrollThumb() {
+            var scrollWidth = grid.scrollWidth;
+            var clientWidth = grid.clientWidth;
+            var scrollPercentage = (clientWidth / scrollWidth);
+            
+            scrollThumb.style.width = (scrollPercentage * 100) + '%';
+            
+            var scrollLeft = grid.scrollLeft;
+            var maxScroll = scrollWidth - clientWidth;
+            var thumbPosition = (scrollLeft / maxScroll) * (scrollTrack.clientWidth - scrollThumb.clientWidth);
+            
+            scrollThumb.style.left = thumbPosition + 'px';
+        }
+
+        var isThumbDragging = false;
+
+        scrollThumb.addEventListener('mousedown', function() {
+            isThumbDragging = true;
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (isThumbDragging) {
+                var trackRect = scrollTrack.getBoundingClientRect();
+                var newLeft = e.clientX - trackRect.left;
+                
+                newLeft = Math.max(0, Math.min(newLeft, scrollTrack.clientWidth - scrollThumb.clientWidth));
+                
+                var scrollPercentage = newLeft / (scrollTrack.clientWidth - scrollThumb.clientWidth);
+                var scrollAmount = scrollPercentage * (grid.scrollWidth - grid.clientWidth);
+                
+                grid.scrollLeft = scrollAmount;
+                updateScrollThumb();
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            isThumbDragging = false;
+        });
+
+        scrollTrack.addEventListener('click', function(e) {
+            var trackRect = scrollTrack.getBoundingClientRect();
+            var clickX = e.clientX - trackRect.left;
+            var thumbWidth = scrollThumb.clientWidth;
+            var trackWidth = scrollTrack.clientWidth;
+            
+            var scrollPercentage = clickX / trackWidth;
+            var scrollAmount = scrollPercentage * (grid.scrollWidth - grid.clientWidth);
+            
+            grid.scrollLeft = scrollAmount;
+            updateScrollThumb();
+        });
+
+        scrollLeftBtn.addEventListener('click', function() {
+            grid.scrollLeft -= 370;
+            setTimeout(updateScrollThumb, 50);
+        });
+
+        scrollRightBtn.addEventListener('click', function() {
+            grid.scrollLeft += 370;
+            setTimeout(updateScrollThumb, 50);
+        });
+
+        grid.addEventListener('scroll', updateScrollThumb);
+
+        function toggleCard(card) {
+            var isActive = card.classList.contains('active');
+            var allCards = document.querySelectorAll('.weather-card');
+            
+            for (var i = 0; i < allCards.length; i++) {
+                allCards[i].classList.remove('active');
+                var hint = allCards[i].querySelector('.click-hint');
+                if (hint) {
+                    hint.textContent = 'Nhấn để xem ▼';
+                }
+            }
+            
+            if (!isActive) {
+                card.classList.add('active');
+                var hint = card.querySelector('.click-hint');
+                if (hint) {
+                    hint.textContent = 'Thu gọn ▲';
+                }
+            }
+        }
+
+        renderWeatherCards();
+    </script>
+</body>
+</html>
