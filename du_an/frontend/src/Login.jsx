@@ -4,7 +4,7 @@ import { GoogleLogin } from '@react-oauth/google'
 
 function Login({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false)
-  const [username, setUsername] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
@@ -15,7 +15,7 @@ function Login({ onLogin }) {
 
   // Clear form khi component mount
   useEffect(() => {
-    setUsername('')
+    setPhone('')
     setPassword('')
     setConfirmPassword('')
     setError('')
@@ -27,8 +27,7 @@ function Login({ onLogin }) {
     if (e.key === 'Enter') {
       e.preventDefault()
       
-      if (fieldType === 'username') {
-        // Focus sang password khi nhấn Enter ở username
+      if (fieldType === 'phone') {
         document.getElementById('password-input').focus()
       } else if (fieldType === 'password' && !isRegister) {
         // Submit form khi nhấn Enter ở password (đăng nhập)
@@ -48,7 +47,7 @@ function Login({ onLogin }) {
     setError('')
     setSuccess('')
     
-    if (username === '' || password === '') {
+    if (phone === '' || password === '') {
       setError('Vui lòng nhập đầy đủ thông tin')
       return
     }
@@ -69,17 +68,17 @@ function Login({ onLogin }) {
         const response = await fetch('http://localhost:5000/api/users/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ phone, password })
         })
         const data = await response.json()
         console.log('✅ Response:', data)
         
         if (data.success || response.ok) {
-          setSuccess('Đăng ký thành công! Bạn có thể đăng nhập ngay.')
-          setUsername('')
+          setSuccess('✅ Đăng ký thành công! Vui lòng đăng nhập.')
+          setPhone('')
           setPassword('')
           setConfirmPassword('')
-          setIsRegister(false)
+          setIsRegister(false)  // Quay lại form login
         } else {
           setError(data.message || data.error || 'Đăng ký thất bại')
         }
@@ -94,15 +93,16 @@ function Login({ onLogin }) {
         const response = await fetch('http://localhost:5000/api/users/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ phone, password })
         })
         const data = await response.json()
         console.log('✅ Response:', data)
         
         if (data.success || response.ok) {
           localStorage.setItem('token', data.token || '')
+          localStorage.setItem('phone', phone)
           console.log('✅ Đăng nhập thành công')
-          onLogin(username)
+          onLogin(phone)  // Chỉ login khi đăng nhập thành công
         } else {
           setError(data.message || data.error || 'Đăng nhập thất bại')
         }
@@ -133,7 +133,7 @@ function Login({ onLogin }) {
       if (data.success && data.token) {
         localStorage.setItem('token', data.token)
         console.log('✅ Google Login thành công!')
-        onLogin(data.user.username)
+        onLogin(data.user.phone)
       } else {
         setError(data.error || 'Đăng nhập Google thất bại')
       }
@@ -158,13 +158,17 @@ function Login({ onLogin }) {
         {/* Google Login Button */}
         {!isRegister && (
           <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-              text="signin_with"
-              theme="dark"
-              size="large"
-            />
+            {loading ? (
+              <p style={{ color: '#999' }}>Đang đăng nhập...</p>
+            ) : (
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                text="signin_with"
+                theme="dark"
+                size="large"
+              />
+            )}
           </div>
         )}
 
@@ -187,12 +191,12 @@ function Login({ onLogin }) {
             <label>Tên đăng nhập:</label>
             <input 
               type="text" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              onKeyPress={(e) => handleKeyPress(e, 'username')}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onKeyPress={(e) => handleKeyPress(e, 'phone')}
               placeholder="Nhập tên đăng nhập"
               autoComplete="off"
-              id="username-input"
+              id="phone-input"
             />
           </div>
 
@@ -258,7 +262,7 @@ function Login({ onLogin }) {
               Đã có tài khoản?{' '}
               <span onClick={() => { 
                 setIsRegister(false)
-                setUsername('')
+                setPhone('')
                 setPassword('')
                 setConfirmPassword('')
                 setError('')
@@ -274,7 +278,7 @@ function Login({ onLogin }) {
               Chưa có tài khoản?{' '}
               <span onClick={() => { 
                 setIsRegister(true)
-                setUsername('')
+                setPhone('')
                 setPassword('')
                 setConfirmPassword('')
                 setError('')

@@ -6,7 +6,7 @@ import LoginModal from './LoginModal'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('public')
-  const [username, setUsername] = useState('')
+  const [phone, setPhone] = useState('')
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
 
   const handleOpenLoginModal = () => {
@@ -18,13 +18,13 @@ function App() {
   }
 
   const handleLogin = (user) => {
-    setUsername(user)
+    setPhone(user)
     setCurrentPage('dashboard')
     setIsLoginModalOpen(false)
   }
 
   const handleLogout = () => {
-    setUsername('')
+    setPhone('')
     setCurrentPage('public')
   }
 
@@ -41,7 +41,7 @@ function App() {
     )
   }
 
-  return <Dashboard username={username} onLogout={handleLogout} />
+  return <Dashboard phone={phone} onLogout={handleLogout} />
 }
 
 export default App

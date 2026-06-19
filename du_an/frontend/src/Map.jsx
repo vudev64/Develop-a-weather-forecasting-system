@@ -3,7 +3,6 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from 're
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './Map.css'
-import WeatherLayerControl from './components/WeatherLayerControl'
 import TemperatureLayer from './components/layers/TemperatureLayer'
 import WindLayer from './components/layers/WindLayer'
 import RainfallLayer from './components/layers/RainfallLayer'
@@ -39,7 +38,7 @@ const getWindIcon = (direction) => {
 
 // Component xử lý click trên bản đồ
 function MapClickHandler({ onClickLocation }) {
-  const map = useMapEvents({
+  useMapEvents({
     click: async (e) => {
       const { lat, lng } = e.latlng;
       
@@ -75,8 +74,7 @@ function MapClickHandler({ onClickLocation }) {
 }
 
 function Map({ weather }) {
-  const [showForecast, setShowForecast] = useState(false)
-  const [layerConfig, setLayerConfig] = useState({
+  const [layerConfig] = useState({
     temperature: false,
     wind: false,
     rainfall: false,
@@ -97,7 +95,6 @@ function Map({ weather }) {
   // Lấy dữ liệu dự báo 24h tiếp theo từ hourly data
   const getNext24HourForecast = () => {
     if (!weather?.hourly?.time) return [];
-    const now = new Date();
     const forecast = [];
     for (let i = 0; i < Math.min(24, weather.hourly.time.length); i++) {
       forecast.push({
@@ -111,33 +108,11 @@ function Map({ weather }) {
     return forecast;
   }
 
-  // Lấy dữ liệu dự báo 7 ngày từ daily data
-  const getDaily7DayForecast = () => {
-    if (!weather?.daily?.time) return [];
-    const forecast = [];
-    for (let i = 0; i < Math.min(7, weather.daily.time.length); i++) {
-      forecast.push({
-        date: weather.daily.time[i],
-        uvIndex: weather.daily.uv_index_max?.[i] || 0,
-        precipitationSum: weather.daily.precipitation_sum?.[i] || 0,
-        precipitationProbability: weather.daily.precipitation_probability_max?.[i] || 0,
-        precipitationHours: weather.daily.precipitation_hours?.[i] || 0
-      });
-    }
-    return forecast;
-  }
-
   const hourly24 = getNext24HourForecast();
-  const daily7 = getDaily7DayForecast();
 
   const formatTime = (timeString) => {
     const date = new Date(timeString);
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  }
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN', { weekday: 'short', month: 'short', day: 'numeric' });
   }
 
   return (
@@ -165,12 +140,6 @@ function Map({ weather }) {
           </div>
         </div>
       </div>
-
-      {/* Weather Layer Control - Menu điều khiển layer */}
-      <WeatherLayerControl 
-        layerConfig={layerConfig}
-        onLayerChange={setLayerConfig}
-      />
 
       <MapContainer 
         center={position} 
@@ -348,49 +317,6 @@ function Map({ weather }) {
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Dự báo hằng ngày */}
-      {daily7.length > 0 && (
-        <div className="forecast-section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h4 style={{ margin: 0 }}>📈 Dự báo 7 ngày</h4>
-            <button 
-              className="forecast-toggle"
-              onClick={() => setShowForecast(!showForecast)}
-              style={{ margin: 0 }}
-            >
-              {showForecast ? '▼ Ẩn chi tiết' : '▶ Xem chi tiết'}
-            </button>
-          </div>
-          {showForecast && (
-            <div className="daily-forecast">
-              {daily7.map((item, idx) => (
-                <div key={idx} className="daily-item">
-                  <div className="daily-date">{formatDate(item.date)}</div>
-                  <div className="daily-details">
-                    <div className="detail-row">
-                      <span>☀️ UV Index:</span>
-                      <span>{item.uvIndex.toFixed(1)}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>🌧️ Lượng mưa:</span>
-                      <span>{item.precipitationSum.toFixed(1)} mm</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>💧 Xác suất mưa:</span>
-                      <span>{item.precipitationProbability}%</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>⏱️ Thời gian mưa:</span>
-                      <span>{item.precipitationHours.toFixed(1)} giờ</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>

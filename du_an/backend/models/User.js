@@ -1,10 +1,14 @@
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
-  username: {
+  phone: {
     type: String,
     required: true,
     unique: true,
+    trim: true
+  },
+  username: {
+    type: String,
     trim: true
   },
   email: {
@@ -15,7 +19,8 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
+    required: true,
+    select: false  // Không return password by default
   },
   // Google OAuth fields
   googleId: {

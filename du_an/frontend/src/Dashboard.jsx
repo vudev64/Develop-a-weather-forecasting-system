@@ -1,14 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './Dashboard.css'
-import Map from './Map'
+import Map from './Map.jsx'
+import UserAvatarMenu from './UserAvatarMenu.jsx' 
 
 function Dashboard({ username, onLogout }) {
   const [city, setCity] = useState('')
   const [weather, setWeather] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
+  const [userInfo, setUserInfo] = useState(null)
   const API_URL = 'http://localhost:5000/api'
+
+  // Fetch user info khi component mount
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(`${API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setUserInfo(data.data)
+        }
+      } catch (err) {
+        console.error('Failed to fetch user info:', err)
+      }
+    }
+    fetchUserInfo()
+  }, [])
 
   // Hàm chuyển đổi WMO weather code sang mô tả (Open-Meteo)
   const getWeatherDescription = (code) => {
@@ -61,7 +81,6 @@ function Dashboard({ username, onLogout }) {
       // Transform dữ liệu: flatten current data vào top level
       const weatherData = {
         ...data.data,
-        // Flatten current object
         temperature: Math.round(data.data.current.temperature),
         feelsLike: Math.round(data.data.current.feelsLike),
         humidity: data.data.current.humidity,
@@ -77,11 +96,17 @@ function Dashboard({ username, onLogout }) {
 
       setWeather(weatherData)
 
-      // Lưu lịch sử tìm kiếm
+      // Lưu lịch sử tìm kiếm (với token)
+      const token = localStorage.getItem('token')
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
       await fetch(`${API_URL}/users/search-history`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, city: data.data.city })
+        headers: headers,
+        body: JSON.stringify({ city: data.data.city })
       })
 
     } catch (err) {
@@ -97,20 +122,28 @@ function Dashboard({ username, onLogout }) {
     }
   }
 
+  const handleLogout = () => {
+    onLogout()
+  }
+
   return (
     <div className="dashboard">
+      {/* Header với dashboard-header class */}
       <div className="dashboard-header">
-        <div className="user-info">
-          <span>Xin chào, <strong>{username}</strong></span>
-        </div>
-        <button onClick={onLogout} className="logout-button">
-          Đăng xuất
-        </button>
+        <h2>🗺️ Bản Đồ Thời Tiết</h2>
+        <UserAvatarMenu
+          username={username}
+          userInfo={userInfo}
+          onLogout={handleLogout}
+          apiUrl={API_URL}
+        />
       </div>
 
       <div className="container">
         <div className="header">
           <h1>Web Dự Báo Thời Tiết</h1>
+          
+          {/* Search box */}
           <div className="search-box">
             <input 
               type="text" 
@@ -174,6 +207,8 @@ function Dashboard({ username, onLogout }) {
               </div>
             )}
           </div>
+
+            
 
           <div className="info-box">
             <h3>Thông tin về thời tiết</h3>

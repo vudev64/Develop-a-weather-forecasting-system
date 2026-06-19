@@ -3,52 +3,137 @@ import './LoginModal.css'
 import { GoogleLogin } from '@react-oauth/google'
 
 function LoginModal({ isOpen, onClose, onLogin }) {
-  const [isLogin, setIsLogin] = useState(true)
+  const [mode, setMode] = useState('login') // 'login', 'register', 'forgot'
+  const [phone, setPhone] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Kiểm tra độ mạnh mật khẩu
+  const checkPasswordStrength = (pwd) => {
+    let strength = 0
+    if (pwd.length >= 8) strength++
+    if (/[a-z]/.test(pwd)) strength++
+    if (/[A-Z]/.test(pwd)) strength++
+    if (/[0-9]/.test(pwd)) strength++
+    if (/[^a-zA-Z0-9]/.test(pwd)) strength++
+    return strength
+  }
+
+  // Lấy mức độ mạnh và màu sắc
+  const getPasswordStrengthInfo = (pwd) => {
+    const strength = checkPasswordStrength(pwd)
+    if (strength === 0) return { label: '', color: '' }
+    if (strength <= 2) return { label: 'Yếu', color: '#ef4444' }
+    if (strength <= 3) return { label: 'Trung bình', color: '#f59e0b' }
+    return { label: 'Mạnh', color: '#22c55e' }
+  }
+
+  const isPasswordStrongEnough = (pwd) => {
+    return checkPasswordStrength(pwd) >= 4
+  }
+
   if (!isOpen) return null
+
+  const resetForm = () => {
+    setError('')
+    setSuccessMessage('')
+    setPhone('')
+    setUsername('')
+    setPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccessMessage('')
     setLoading(true)
 
     try {
-      const endpoint = isLogin ? '/api/users/login' : '/api/users/register'
-      
-      if (!isLogin && password !== confirmPassword) {
+      if (mode === 'register' && password !== confirmPassword) {
         setError('Mật khẩu không khớp!')
         setLoading(false)
         return
       }
 
-      console.log(`📝 Đang ${isLogin ? 'đăng nhập' : 'đăng ký'}...`)
+      if (mode === 'register' && !isPasswordStrongEnough(password)) {
+        setError('Mật khẩu phải đủ mạnh: ít nhất 8 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt!')
+        setLoading(false)
+        return
+      }
+
+      if (mode === 'forgot' && newPassword !== confirmPassword) {
+        setError('Mật khẩu mới không khớp!')
+        setLoading(false)
+        return
+      }
+
+      if (mode === 'forgot' && !isPasswordStrongEnough(newPassword)) {
+        setError('Mật khẩu phải đủ mạnh: ít nhất 8 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt!')
+        setLoading(false)
+        return
+      }
+
+      let endpoint = ''
+      let body = {}
+
+      if (mode === 'login') {
+        endpoint = '/api/users/login'
+        body = { phone, password }
+      } else if (mode === 'register') {
+        endpoint = '/api/users/register'
+        body = { phone, username, password }
+      } else if (mode === 'forgot') {
+        endpoint = '/api/users/reset-password'
+        body = { phone, newPassword }
+      }
+
+      console.log(`📝 Đang xử lý...`)
 
       const response = await fetch(`http://localhost:5000${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify(body)
       })
 
       const data = await response.json()
       console.log('✅ Response:', data)
 
       if (!response.ok) {
-        setError(data.message || `Lỗi ${response.status}: ${response.statusText}`)
+        setError(data.error || data.message || `Lỗi ${response.status}: ${response.statusText}`)
         console.error('❌ Error:', data)
         setLoading(false)
         return
       }
 
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('username', data.data?.username || username)
+      // REGISTER: chỉ show success, quay lại login
+      if (mode === 'register') {
+        alert('✅ Đăng ký thành công! Vui lòng đăng nhập.')
+        resetForm()
+        setMode('login')
+        return
+      }
+
+      // FORGOT: show success, quay lại login
+      if (mode === 'forgot') {
+        setSuccessMessage('✅ Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.')
+        resetForm()
+        setMode('login')
+        return
+      }
+
+      // LOGIN: lưu token và jump vào dashboard
+      localStorage.setItem('token', data.token || '')
+      localStorage.setItem('username', data.data?.phone || phone)
       console.log('✅ Đăng nhập thành công')
-      onLogin(data.data?.username || username)
+      onLogin(data.data?.phone || phone)
       onClose()
     } catch (err) {
       console.error('❌ Network Error:', err)
@@ -62,7 +147,7 @@ function LoginModal({ isOpen, onClose, onLogin }) {
     setLoading(true)
     setError('')
     try {
-      console.log('🔐 Google Response:', credentialResponse)
+      console.log('🔐 Google Credential nhận được, length:', credentialResponse.credential.length)
       
       const response = await fetch('http://localhost:5000/api/auth/google/verify', {
         method: 'POST',
@@ -71,19 +156,31 @@ function LoginModal({ isOpen, onClose, onLogin }) {
       })
       
       const data = await response.json()
-      console.log('✅ Auth Response:', data)
+      console.log('✅ Backend Response:', data)
+      console.log('   Status:', response.status)
+      console.log('   Response OK:', response.ok)
+      
+      if (!response.ok) {
+        console.error('❌ Backend error:')
+        console.error('   Error:', data.error)
+        console.error('   Details:', data.details)
+        console.error('   Error Name:', data.errorName)
+        setError(data.error + (data.details ? ` (${data.details})` : ''))
+        return
+      }
       
       if (data.success && data.token) {
         localStorage.setItem('token', data.token)
         console.log('✅ Google Login thành công!')
-        onLogin(data.user.username)
+        onLogin(data.data?.phone || data.data?.username)
         onClose()
       } else {
         setError(data.error || 'Đăng nhập Google thất bại')
       }
     } catch (err) {
-      console.error('❌ Google Login Error:', err)
-      setError(`Lỗi Google login: ${err.message}`)
+      console.error('❌ Network Error:', err)
+      console.error('   Message:', err.message)
+      setError(`Lỗi kết nối: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -96,45 +193,109 @@ function LoginModal({ isOpen, onClose, onLogin }) {
   return (
     <div className="login-modal-overlay" onClick={onClose}>
       <div className="login-modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close-btn" onClick={onClose}>✕</button>
+        <button className="modal-close-btn" onClick={() => { resetForm(); setMode('login'); onClose(); }}>✕</button>
 
-        <h2>{isLogin ? 'Đăng Nhập' : 'Đăng Ký'}</h2>
+        <h2>
+          {mode === 'login' ? 'Đăng Nhập' : mode === 'register' ? 'Đăng Ký' : 'Quên Mật Khẩu'}
+        </h2>
 
         {error && <div className="modal-error-message">{error}</div>}
+        {successMessage && <div style={{ color: '#4ade80', marginBottom: '1rem', textAlign: 'center' }}>{successMessage}</div>}
 
         <form onSubmit={handleSubmit}>
+          {/* Số điện thoại - hiển thị ở tất cả các mode */}
           <div className="modal-form-group">
-            <label>Username</label>
+            <label>Số điện thoại</label>
             <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               required
               disabled={loading}
+              placeholder="09xxxxxxxx"
             />
           </div>
 
-          <div className="modal-form-group">
-            <label>Password</label>
-            <div className="modal-password-group">
+          {/* Tên người dùng - chỉ ở register */}
+          {mode === 'register' && (
+            <div className="modal-form-group">
+              <label>Tên người dùng (tùy chọn)</label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 disabled={loading}
+                placeholder="Nhập tên của bạn"
               />
-              <button
-                type="button"
-                className="modal-toggle-password"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
-              </button>
             </div>
-          </div>
+          )}
 
-          {!isLogin && (
+          {/* Mật khẩu cũ / Mật khẩu mới */}
+          {mode !== 'forgot' && (
+            <div className="modal-form-group">
+              <label>Password {mode === 'register' && <span style={{fontSize: '12px', color: '#666'}}>(ít nhất 8 ký tự, có chữ hoa, chữ thường, số, ký tự đặc biệt)</span>}</label>
+              <div className="modal-password-group">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  className="modal-toggle-password"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+              {/* Hiển thị độ mạnh mật khẩu */}
+              {mode === 'register' && password && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                  Độ mạnh: <span style={{ color: getPasswordStrengthInfo(password).color, fontWeight: 'bold' }}>
+                    {getPasswordStrengthInfo(password).label}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Mật khẩu mới - chỉ ở forgot */}
+          {mode === 'forgot' && (
+            <div className="modal-form-group">
+              <label>Mật khẩu mới <span style={{fontSize: '12px', color: '#666'}}>(ít nhất 8 ký tự, có chữ hoa, chữ thường, số, ký tự đặc biệt)</span></label>
+              <div className="modal-password-group">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  className="modal-toggle-password"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+              {/* Hiển thị độ mạnh mật khẩu */}
+              {newPassword && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                  Độ mạnh: <span style={{ color: getPasswordStrengthInfo(newPassword).color, fontWeight: 'bold' }}>
+                    {getPasswordStrengthInfo(newPassword).label}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Confirm Password - ở register và forgot */}
+          {(mode === 'register' || mode === 'forgot') && (
             <div className="modal-form-group">
               <label>Confirm Password</label>
               <input
@@ -152,40 +313,58 @@ function LoginModal({ isOpen, onClose, onLogin }) {
             className="modal-login-button"
             disabled={loading}
           >
-            {loading ? 'Đang xử lý...' : (isLogin ? 'Đăng Nhập' : 'Đăng Ký')}
+            {loading ? 'Đang xử lý...' : (mode === 'login' ? 'Đăng Nhập' : mode === 'register' ? 'Đăng Ký' : 'Đặt lại mật khẩu')}
           </button>
         </form>
 
-        {isLogin && (
+        {/* Quên mật khẩu - chỉ ở login */}
+        {mode === 'login' && (
           <div className="modal-forgot-password">
-            <a href="#forgot">Quên mật khẩu?</a>
+            <a href="#forgot" onClick={(e) => { e.preventDefault(); resetForm(); setMode('forgot'); }}>Quên mật khẩu?</a>
           </div>
         )}
 
-        <div className="modal-switch-mode">
-          <p>
-            {isLogin ? 'Chưa có tài khoản? ' : 'Đã có tài khoản? '}
-            <span onClick={() => {
-              setIsLogin(!isLogin)
-              setError('')
-            }}>
-              {isLogin ? 'Đăng Ký Ngay' : 'Đăng Nhập'}
-            </span>
-          </p>
-        </div>
+        {/* Chuyển mode - không ở forgot */}
+        {mode !== 'forgot' && (
+          <div className="modal-switch-mode">
+            <p>
+              {mode === 'login' ? 'Chưa có tài khoản? ' : 'Đã có tài khoản? '}
+              <span onClick={() => {
+                resetForm()
+                setMode(mode === 'login' ? 'register' : 'login')
+              }}>
+                {mode === 'login' ? 'Đăng Ký Ngay' : 'Đăng Nhập'}
+              </span>
+            </p>
+          </div>
+        )}
 
-        <div className="modal-divider">
-          <span>hoặc</span>
-        </div>
+        {/* Quay lại đăng nhập - chỉ ở forgot */}
+        {mode === 'forgot' && (
+          <div className="modal-switch-mode">
+            <p>
+              <span onClick={() => { resetForm(); setMode('login'); }}>Quay lại Đăng Nhập</span>
+            </p>
+          </div>
+        )}
 
-        <div className="modal-oauth-buttons">
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={handleGoogleError}
-            text="signin_with"
-            width="100%"
-          />
-        </div>
+        {/* Google Login - chỉ ở login */}
+        {mode === 'login' && (
+          <>
+            <div className="modal-divider">
+              <span>hoặc</span>
+            </div>
+
+            <div className="modal-oauth-buttons">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                text="signin_with"
+                width="100%"
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

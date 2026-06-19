@@ -76,6 +76,27 @@ function PublicMap() {
 
       console.log('✅ Weather data loaded:', weatherData)
       setWeather(weatherData)
+
+      // Lưu lịch sử tìm kiếm (optional - chỉ save nếu login)
+      const token = localStorage.getItem('token')
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const saveResponse = await fetch(`${API_URL}/users/search-history`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ city: data.data.city })
+      })
+
+      const saveData = await saveResponse.json()
+      if (saveData.saved === false) {
+        console.log('💡 Tip:', saveData.tip)
+      } else if (saveData.saved) {
+        console.log('✅ Đã lưu lịch sử tìm kiếm')
+      }
+
     } catch (err) {
       console.error('❌ Lỗi fetch weather:', err)
       setError(err.message)
@@ -86,6 +107,7 @@ function PublicMap() {
 
   // Load default weather on mount
   useEffect(() => {
+    console.log('🎯 PublicMap mounted - fetching default weather (Hanoi)')
     fetchWeather('Hanoi')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
