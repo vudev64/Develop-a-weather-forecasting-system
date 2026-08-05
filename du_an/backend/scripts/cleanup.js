@@ -1,7 +1,12 @@
 import { execSync } from 'child_process';
 import process from 'process';
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT || process.env.BACKEND_PORT);
+
+if (!PORT) {
+  console.error('❌ Thiếu port. Hãy set PORT/BACKEND_PORT trước khi chạy cleanup.');
+  process.exit(1);
+}
 
 try {
   console.log(`🧹 Dọn dẹp port ${PORT}...`);

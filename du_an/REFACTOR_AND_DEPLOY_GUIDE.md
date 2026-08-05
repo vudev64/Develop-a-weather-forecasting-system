@@ -34,13 +34,20 @@
    - `MONGODB_URI`: URI kết nối MongoDB
    - `JWT_SECRET`: Khóa bí mật cho JWT
    - `GOOGLE_CLIENT_ID`: Client ID cho Google OAuth (nếu dùng)
-   - `FRONTEND_URL`: URL của frontend (mặc định `http://localhost:3000`)
+   - `FRONTEND_URL`: URL của frontend (đặt khớp port frontend dev hiện tại)
+
+### Đổi Port Khi Dev
+
+- Frontend đọc port từ `frontend/.env` qua `VITE_PORT`.
+- Backend đọc port từ `backend/.env` qua `PORT`.
+- Khi đổi port frontend, nhớ cập nhật `FRONTEND_URL` trong `backend/.env` để CORS và Google callback khớp.
+- Không cần sửa code để đổi port dev nữa, chỉ cần đổi biến môi trường.
 
 ### Chạy Ở Development
 ```bash
 npm run dev
 ```
-Lệnh này sẽ chạy đồng thời backend (ở cổng 5000) và frontend (ở cổng 3000)
+Lệnh này sẽ chạy đồng thời backend và frontend theo port khai báo trong `.env` của từng phần.
 
 ## Hướng Dẫn Deploy
 

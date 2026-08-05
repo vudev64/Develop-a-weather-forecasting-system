@@ -20,7 +20,11 @@ PORT=5000
 MONGODB_URI=mongodb://localhost:27017/weather_app
 WEATHER_API_KEY=your_api_key_here
 WEATHER_API_URL=https://api.openweathermap.org/data/2.5/weather
+FRONTEND_URL=http://localhost:5173
 ```
+
+Nếu muốn đổi port backend khi dev, sửa `PORT` trong `backend/.env`.
+Nếu frontend đổi port, cập nhật `FRONTEND_URL` cho khớp để CORS không bị chặn.
 
 **Lấy API Key miễn phí tại:** https://openweathermap.org/api
 

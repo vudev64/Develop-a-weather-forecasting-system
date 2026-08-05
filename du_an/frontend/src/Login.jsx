@@ -1,145 +1,74 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import './Login.css'
-import { GoogleLogin } from '@react-oauth/google'
+import { authService } from './services/authService.js'
+import LoginForm from './components/auth/LoginForm.jsx'
+import RegisterForm from './components/auth/RegisterForm.jsx'
 
 function Login({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false)
   const [phone, setPhone] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-
-  // Clear form khi component mount
-  useEffect(() => {
-    setPhone('')
-    setPassword('')
-    setConfirmPassword('')
-    setError('')
-    setSuccess('')
-  }, [])
-
-  // Xử lý phím Enter
-  const handleKeyPress = (e, fieldType) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      
-      if (fieldType === 'phone') {
-        document.getElementById('password-input').focus()
-      } else if (fieldType === 'password' && !isRegister) {
-        // Submit form khi nhấn Enter ở password (đăng nhập)
-        handleSubmit(e)
-      } else if (fieldType === 'password' && isRegister) {
-        // Focus sang confirm password khi nhấn Enter ở password (đăng ký)
-        document.getElementById('confirm-password-input').focus()
-      } else if (fieldType === 'confirmPassword') {
-        // Submit form khi nhấn Enter ở confirm password
-        handleSubmit(e)
-      }
-    }
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
     
-    if (phone === '' || password === '') {
-      setError('Vui lòng nhập đầy đủ thông tin')
-      return
-    }
-
     if (isRegister) {
-      // Xử lý đăng ký
       if (password !== confirmPassword) {
         setError('Mật khẩu xác nhận không khớp')
         return
       }
-      if (password.length < 3) {
-        setError('Mật khẩu phải có ít nhất 3 ký tự')
+      if (password.length < 8) {
+        setError('Mật khẩu phải có ít nhất 8 ký tự')
         return
       }
       
       try {
-        console.log('📝 Đang đăng ký...')
-        const response = await fetch('http://localhost:5000/api/users/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, password })
-        })
-        const data = await response.json()
-        console.log('✅ Response:', data)
-        
-        if (data.success || response.ok) {
-          setSuccess('✅ Đăng ký thành công! Vui lòng đăng nhập.')
-          setPhone('')
-          setPassword('')
-          setConfirmPassword('')
-          setIsRegister(false)  // Quay lại form login
-        } else {
-          setError(data.message || data.error || 'Đăng ký thất bại')
-        }
+        await authService.register(phone, password, username)
+        setSuccess('Đăng ký thành công. Vui lòng đăng nhập.')
+        setPhone('')
+        setUsername('')
+        setPassword('')
+        setConfirmPassword('')
+        setIsRegister(false)
       } catch (err) {
-        console.error('❌ Error:', err)
-        setError(`Lỗi kết nối: ${err.message}\n\nĐảm bảo Backend chạy trên http://localhost:5000`)
+        setError(err.message || 'Đăng ký thất bại')
       }
     } else {
-      // Xử lý đăng nhập
       try {
-        console.log('📝 Đang đăng nhập...')
-        const response = await fetch('http://localhost:5000/api/users/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, password })
-        })
-        const data = await response.json()
-        console.log('✅ Response:', data)
-        
-        if (data.success || response.ok) {
-          localStorage.setItem('token', data.token || '')
-          localStorage.setItem('phone', phone)
-          console.log('✅ Đăng nhập thành công')
-          onLogin(phone)  // Chỉ login khi đăng nhập thành công
-        } else {
-          setError(data.message || data.error || 'Đăng nhập thất bại')
-        }
+        const data = await authService.login(phone, password)
+        localStorage.setItem('token', data.token || '')
+        localStorage.setItem('phone', data.data?.phone || phone)
+        localStorage.setItem('username', data.data?.username || data.data?.phone || phone)
+        onLogin(data.data?.phone || phone)
       } catch (err) {
-        console.error('❌ Error:', err)
-        setError(`Lỗi kết nối: ${err.message}\n\nĐảm bảo Backend chạy trên http://localhost:5000`)
+        setError(err.message || 'Đăng nhập thất bại')
       }
     }
   }
 
-  // Xử lý Google Login
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       setLoading(true)
       setError('')
-      
-      console.log('🔐 Google Response:', credentialResponse)
-      
-      const response = await fetch('http://localhost:5000/api/auth/google/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: credentialResponse.credential })
-      })
-      
-      const data = await response.json()
-      console.log('✅ Auth Response:', data)
-      
+      const data = await authService.verifyGoogleToken(credentialResponse.credential)
+
       if (data.success && data.token) {
         localStorage.setItem('token', data.token)
-        console.log('✅ Google Login thành công!')
-        onLogin(data.user.phone)
+        localStorage.setItem('phone', data.data?.phone || data.data?.username || '')
+        localStorage.setItem('username', data.data?.username || data.data?.phone || '')
+        onLogin(data.data?.phone || data.data?.username)
       } else {
         setError(data.error || 'Đăng nhập Google thất bại')
       }
     } catch (err) {
-      console.error('❌ Google Login Error:', err)
-      setError(`Lỗi Google login: ${err.message}`)
+      setError(err.message || 'Đăng nhập Google thất bại')
     } finally {
       setLoading(false)
     }
@@ -153,146 +82,57 @@ function Login({ onLogin }) {
     <div className="login-container">
       <div className="login-box">
         <h2>{isRegister ? 'Đăng Ký' : 'Đăng Nhập'}</h2>
-        <p>{isRegister ? 'Tạo tài khoản mới' : 'Đăng nhập để sử dụng dự báo thời tiết'}</p>
-        
-        {/* Google Login Button */}
-        {!isRegister && (
-          <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
-            {loading ? (
-              <p style={{ color: '#999' }}>Đang đăng nhập...</p>
-            ) : (
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                text="signin_with"
-                theme="dark"
-                size="large"
-              />
-            )}
-          </div>
+        <p>{isRegister ? 'Tạo tài khoản mới bằng số điện thoại' : 'Đăng nhập để sử dụng dự báo thời tiết'}</p>
+
+        {isRegister ? (
+          <RegisterForm
+            scope="page"
+            phone={phone}
+            setPhone={setPhone}
+            username={username}
+            setUsername={setUsername}
+            password={password}
+            setPassword={setPassword}
+            confirmPassword={confirmPassword}
+            setConfirmPassword={setConfirmPassword}
+            loading={loading}
+            error={error}
+            success={success}
+            onSubmit={handleSubmit}
+            onSwitchToLogin={() => {
+              setIsRegister(false)
+              setPhone('')
+              setUsername('')
+              setPassword('')
+              setConfirmPassword('')
+              setError('')
+              setSuccess('')
+            }}
+          />
+        ) : (
+          <LoginForm
+            scope="page"
+            phone={phone}
+            setPhone={setPhone}
+            password={password}
+            setPassword={setPassword}
+            loading={loading}
+            error={error}
+            onSubmit={handleSubmit}
+            onGoogleSuccess={handleGoogleSuccess}
+            onGoogleError={handleGoogleError}
+            onSwitchToRegister={() => {
+              setIsRegister(true)
+              setPhone('')
+              setUsername('')
+              setPassword('')
+              setConfirmPassword('')
+              setError('')
+              setSuccess('')
+            }}
+            showForgotPassword={false}
+          />
         )}
-
-        {/* Divider */}
-        {!isRegister && (
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            margin: '20px 0',
-            gap: '10px'
-          }}>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#666' }}></div>
-            <span style={{ color: '#999', fontSize: '12px' }}>hoặc</span>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#666' }}></div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} autoComplete="off">
-          <div className="form-group">
-            <label>Tên đăng nhập:</label>
-            <input 
-              type="text" 
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onKeyPress={(e) => handleKeyPress(e, 'phone')}
-              placeholder="Nhập tên đăng nhập"
-              autoComplete="off"
-              id="phone-input"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Mật khẩu:</label>
-            <div className="password-input-group">
-              <input 
-                type={showPassword ? "text" : "password"} 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={(e) => handleKeyPress(e, 'password')}
-                placeholder="Nhập mật khẩu"
-                autoComplete="new-password"
-                id="password-input"
-              />
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex="-1"
-              >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
-              </button>
-            </div>
-          </div>
-
-          {isRegister && (
-            <div className="form-group">
-              <label>Xác nhận mật khẩu:</label>
-              <div className="password-input-group">
-                <input 
-                  type={showConfirmPassword ? "text" : "password"} 
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  onKeyPress={(e) => handleKeyPress(e, 'confirmPassword')}
-                  placeholder="Nhập lại mật khẩu"
-                  autoComplete="new-password"
-                  id="confirm-password-input"
-                />
-                <button
-                  type="button"
-                  className="toggle-password"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  tabIndex="-1"
-                >
-                  {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">{success}</div>}
-
-          <button type="submit" className="login-button">
-            {isRegister ? 'Đăng ký' : 'Đăng nhập'}
-          </button>
-        </form>
-
-        <div className="switch-mode">
-          {isRegister ? (
-            <p>
-              Đã có tài khoản?{' '}
-              <span onClick={() => { 
-                setIsRegister(false)
-                setPhone('')
-                setPassword('')
-                setConfirmPassword('')
-                setError('')
-                setSuccess('')
-                setShowPassword(false)
-                setShowConfirmPassword(false)
-              }}>
-                Đăng nhập ngay
-              </span>
-            </p>
-          ) : (
-            <p>
-              Chưa có tài khoản?{' '}
-              <span onClick={() => { 
-                setIsRegister(true)
-                setPhone('')
-                setPassword('')
-                setConfirmPassword('')
-                setError('')
-                setSuccess('')
-                setShowPassword(false)
-                setShowConfirmPassword(false)
-              }}>
-                Đăng ký ngay
-              </span>
-            </p>
-          )}
-        </div>
-
-
       </div>
     </div>
   )

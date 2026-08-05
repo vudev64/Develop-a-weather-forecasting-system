@@ -1,48 +1,44 @@
 import mongoose from 'mongoose';
-
-const userSchema = new mongoose.Schema({
+const UserSchema = new mongoose.Schema({
   phone: {
     type: String,
-    required: true,
-    unique: true,
-    trim: true
+    sparse: true
   },
   username: {
     type: String,
-    trim: true
-  },
-  email: {
-    type: String,
-    unique: true,
-    sparse: true,
-    trim: true
+    required: true
   },
   password: {
     type: String,
-    required: true,
-    select: false  // Không return password by default
+    required: true
   },
-  // Google OAuth fields
-  googleId: {
+  searchHistory: [
+    {
+      city: { type: String, required: true },
+      searchedAt: { type: Date, required: true }
+    }
+  ],
+  passwordResetOtpHash: {
+    type: String
+  },
+  passwordResetOtpExpiresAt: {
+    type: Date
+  },
+  passwordResetOtpVerifiedAt: {
+    type: Date
+  },
+  passwordResetOtpTargetEmail: {
+    type: String,
+  },
+  forgotPasswordToken: {
     type: String,
     unique: true,
-    sparse: true
+    nullable: true
   },
-  fullName: {
-    type: String
-  },
-  picture: {
-    type: String
-  },
-  searchHistory: [{
-    city: String,
-    searchedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }]
-}, {
-  timestamps: true
+  forgotPasswordExpiresAt: {
+    type: Date,
+    nullable: true
+  }
 });
 
-export default mongoose.model('User', userSchema);
+export default mongoose.model('User', UserSchema);

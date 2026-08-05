@@ -1,6 +1,11 @@
 import { execSync } from 'child_process';
 
-const PORT = process.argv[2] || 5000;
+const PORT = Number(process.env.PORT || process.env.BACKEND_PORT || process.argv[2]);
+
+if (!PORT) {
+  console.error('❌ Thiếu port. Hãy set PORT/BACKEND_PORT hoặc truyền tham số dòng lệnh.');
+  process.exit(1);
+}
 
 console.log(`🔥 Kill port ${PORT}...`);
 

@@ -1,5 +1,45 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Map from './Map'
+import { mapWeatherResponse as normalizeWeatherResponse, weatherService } from './services/weatherService.js'
+
+const WEATHER_DESCRIPTIONS = {
+  0: 'Trời quang',
+  1: 'Hầu như trời quang',
+  2: 'Có mây',
+  3: 'Mây che phủ',
+  45: 'Sương mù',
+  48: 'Sương mù rime',
+  51: 'Mưa nhẹ',
+  53: 'Mưa vừa',
+  55: 'Mưa nặng',
+  61: 'Mưa',
+  63: 'Mưa vừa',
+  65: 'Mưa nặng',
+  71: 'Tuyết nhẹ',
+  73: 'Tuyết vừa',
+  75: 'Tuyết nặng',
+  80: 'Mưa rào nhẹ',
+  81: 'Mưa rào vừa',
+  82: 'Mưa rào nặng',
+  85: 'Tuyết rào nhẹ',
+  86: 'Tuyết rào nặng',
+  95: 'Giông',
+  96: 'Giông với mưa đá nhẹ',
+  99: 'Giông với mưa đá nặng'
+}
+
+const getWeatherDescription = (code) => {
+  return WEATHER_DESCRIPTIONS[code] || 'Không xác định'
+}
+
+const buildWeatherData = (data) => {
+  const normalized = normalizeWeatherResponse(data)
+
+  return {
+    ...normalized,
+    description: getWeatherDescription(normalized.weatherCode),
+  }
+}
 
 /**
  * PublicMap - Bản đồ thời tiết cho trang public
@@ -11,106 +51,29 @@ function PublicMap() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const API_URL = 'http://localhost:5000/api'
-
-  // Hàm chuyển đổi WMO weather code sang mô tả
-  const getWeatherDescription = (code) => {
-    const codes = {
-      0: 'Trời quang',
-      1: 'Hầu như trời quang',
-      2: 'Có mây',
-      3: 'Mây che phủ',
-      45: 'Sương mù',
-      48: 'Sương mù rime',
-      51: 'Mưa nhẹ',
-      53: 'Mưa vừa',
-      55: 'Mưa nặng',
-      61: 'Mưa',
-      63: 'Mưa vừa',
-      65: 'Mưa nặng',
-      71: 'Tuyết nhẹ',
-      73: 'Tuyết vừa',
-      75: 'Tuyết nặng',
-      80: 'Mưa rào nhẹ',
-      81: 'Mưa rào vừa',
-      82: 'Mưa rào nặng',
-      85: 'Tuyết rào nhẹ',
-      86: 'Tuyết rào nặng',
-      95: 'Giông',
-      96: 'Giông với mưa đá nhẹ',
-      99: 'Giông với mưa đá nặng'
-    };
-    return codes[code] || 'Không xác định';
-  }
-
-  // Fetch weather data
-  const fetchWeather = async (cityName) => {
+  const fetchWeather = useCallback(async (cityName) => {
     setLoading(true)
     setError('')
     setWeather(null)
 
     try {
-      const response = await fetch(`${API_URL}/weather/${cityName}`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Không thể lấy dữ liệu thời tiết')
-      }
-
-      // Transform dữ liệu: flatten current data vào top level
-      const weatherData = {
-        ...data.data,
-        // Flatten current object
-        temperature: Math.round(data.data.current.temperature),
-        feelsLike: Math.round(data.data.current.feelsLike),
-        humidity: data.data.current.humidity,
-        windSpeed: data.data.current.windSpeed,
-        windDirection: data.data.current.windDirection,
-        windGust: data.data.current.windGust,
-        precipitation: data.data.current.precipitation,
-        weatherCode: data.data.current.weatherCode,
-      }
-
-      // Thêm mô tả thời tiết
-      weatherData.description = getWeatherDescription(weatherData.weatherCode)
-
-      console.log('✅ Weather data loaded:', weatherData)
+      const data = await weatherService.getWeatherByCity(cityName)
+      const weatherData = buildWeatherData(data)
       setWeather(weatherData)
 
-      // Lưu lịch sử tìm kiếm (optional - chỉ save nếu login)
-      const token = localStorage.getItem('token')
-      const headers = { 'Content-Type': 'application/json' }
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-
-      const saveResponse = await fetch(`${API_URL}/users/search-history`, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({ city: data.data.city })
-      })
-
-      const saveData = await saveResponse.json()
-      if (saveData.saved === false) {
-        console.log('💡 Tip:', saveData.tip)
-      } else if (saveData.saved) {
-        console.log('✅ Đã lưu lịch sử tìm kiếm')
-      }
+      await weatherService.saveSearchHistory(weatherData.city || cityName)
 
     } catch (err) {
-      console.error('❌ Lỗi fetch weather:', err)
-      setError(err.message)
+      setError(err.message || 'Không thể lấy dữ liệu thời tiết')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   // Load default weather on mount
   useEffect(() => {
-    console.log('🎯 PublicMap mounted - fetching default weather (Hanoi)')
-    fetchWeather('Hanoi')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    void fetchWeather('Hanoi')
+  }, [fetchWeather])
 
   const handleSearch = (e) => {
     e.preventDefault()

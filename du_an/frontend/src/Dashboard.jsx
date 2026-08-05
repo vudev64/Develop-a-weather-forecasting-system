@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import './Dashboard.css'
 import Map from './Map.jsx'
 import UserAvatarMenu from './UserAvatarMenu.jsx' 
+import WeatherLayerControl from './components/WeatherLayerControl.jsx'
+import { authService } from './services/authService.js'
+import { mapWeatherResponse as normalizeWeatherResponse, weatherService } from './services/weatherService.js'
 
 function Dashboard({ username, onLogout }) {
   const [city, setCity] = useState('')
@@ -9,28 +12,30 @@ function Dashboard({ username, onLogout }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [userInfo, setUserInfo] = useState(null)
-  const API_URL = 'http://localhost:5000/api'
 
-  // Fetch user info khi component mount
+  // Quản lý state cho các lớp thời tiết (Layer)
+  const [layerConfig, setLayerConfig] = useState({
+    temperature: false,
+    wind: false,
+    rainfall: false,
+    humidity: false,
+    opacity: 0.7,
+    windStyle: 'arrows'
+  })
+
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
-        const token = localStorage.getItem('token')
-        const response = await fetch(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        if (response.ok) {
-          const data = await response.json()
-          setUserInfo(data.data)
-        }
-      } catch (err) {
-        console.error('Failed to fetch user info:', err)
+        const data = await authService.getMe()
+        setUserInfo(data.data || null)
+      } catch {
+        setUserInfo(null)
       }
     }
+
     fetchUserInfo()
   }, [])
 
-  // Hàm chuyển đổi WMO weather code sang mô tả (Open-Meteo)
   const getWeatherDescription = (code) => {
     const codes = {
       0: 'Trời quang',
@@ -56,12 +61,23 @@ function Dashboard({ username, onLogout }) {
       95: 'Giông',
       96: 'Giông với mưa đá nhẹ',
       99: 'Giông với mưa đá nặng'
-    };
-    return codes[code] || 'Không xác định';
+    }
+
+    return codes[code] || 'Không xác định'
   }
 
-  const searchWeather = async () => {
-    if (!city.trim()) {
+  const buildWeatherData = (data) => {
+    const normalized = normalizeWeatherResponse(data)
+
+    return {
+      ...normalized,
+      description: getWeatherDescription(normalized.weatherCode),
+    }
+  }
+
+  const searchWeather = async (targetCity) => {
+    const searchTarget = targetCity || city
+    if (!searchTarget.trim()) {
       setError('Vui lòng nhập tên thành phố')
       return
     }
@@ -71,46 +87,14 @@ function Dashboard({ username, onLogout }) {
     setWeather(null)
 
     try {
-      const response = await fetch(`${API_URL}/weather/${city}`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Không thể lấy dữ liệu thời tiết')
-      }
-
-      // Transform dữ liệu: flatten current data vào top level
-      const weatherData = {
-        ...data.data,
-        temperature: Math.round(data.data.current.temperature),
-        feelsLike: Math.round(data.data.current.feelsLike),
-        humidity: data.data.current.humidity,
-        windSpeed: data.data.current.windSpeed,
-        windDirection: data.data.current.windDirection,
-        windGust: data.data.current.windGust,
-        precipitation: data.data.current.precipitation,
-        weatherCode: data.data.current.weatherCode,
-      }
-
-      // Thêm mô tả thời tiết
-      weatherData.description = getWeatherDescription(weatherData.weatherCode)
+      const data = await weatherService.getWeatherByCity(searchTarget)
+      const weatherData = buildWeatherData(data)
 
       setWeather(weatherData)
-
-      // Lưu lịch sử tìm kiếm (với token)
-      const token = localStorage.getItem('token')
-      const headers = { 'Content-Type': 'application/json' }
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-
-      await fetch(`${API_URL}/users/search-history`, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({ city: data.data.city })
-      })
+      await weatherService.saveSearchHistory(weatherData.city || searchTarget)
 
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Không thể lấy dữ liệu thời tiết')
     } finally {
       setLoading(false)
     }
@@ -122,28 +106,37 @@ function Dashboard({ username, onLogout }) {
     }
   }
 
-  const handleLogout = () => {
-    onLogout()
+  // Chọn nhanh thành phố từ Lịch sử / Yêu thích trong Avatar Menu
+  const handleSelectCityFromMenu = (selectedCity) => {
+    setCity(selectedCity)
+    searchWeather(selectedCity)
   }
 
   return (
     <div className="dashboard">
-      {/* Header với dashboard-header class */}
-      <div className="dashboard-header">
+      {/* 🟢 CHỈ HIỂN THỊ MENU CONTROL KHI ĐÃ CÓ DỮ LIỆU THỜI TIẾT (TÌM KIẾM THÀNH CÔNG) */}
+      {weather && (
+        <WeatherLayerControl
+          layerConfig={layerConfig}
+          onLayerChange={setLayerConfig}
+        />
+      )}
+
+      {/* Header tối giản: Tiêu đề bên trái, Avatar Menu bên phải */}
+      <header className="dashboard-header">
         <h2>🗺️ Bản Đồ Thời Tiết</h2>
         <UserAvatarMenu
           username={username}
           userInfo={userInfo}
-          onLogout={handleLogout}
-          apiUrl={API_URL}
+          onLogout={onLogout}
+          onSelectCity={handleSelectCityFromMenu}
         />
-      </div>
+      </header>
 
       <div className="container">
         <div className="header">
           <h1>Web Dự Báo Thời Tiết</h1>
           
-          {/* Search box */}
           <div className="search-box">
             <input 
               type="text" 
@@ -152,7 +145,7 @@ function Dashboard({ username, onLogout }) {
               onChange={(e) => setCity(e.target.value)}
               onKeyPress={handleKeyPress}
             />
-            <button onClick={searchWeather} disabled={loading}>
+            <button onClick={() => searchWeather()} disabled={loading}>
               {loading ? 'Đang tìm...' : 'Tìm kiếm'}
             </button>
           </div>
@@ -203,17 +196,17 @@ function Dashboard({ username, onLogout }) {
                     </div>
                   </div>
                 </div>
-                <Map weather={weather} />
+
+                {/* Truyền cấu hình layer xuống cho Map */}
+                <Map weather={weather} layerConfig={layerConfig} />
               </div>
             )}
           </div>
 
-            
-
           <div className="info-box">
             <h3>Thông tin về thời tiết</h3>
             <p>Tìm hiểu về các loại thời tiết và cách phòng tránh</p>
-            <a href="/weather-info.html" target="_blank">
+            <a href="/weather-info.html" target="_blank" rel="noopener noreferrer">
               Xem hướng dẫn chi tiết
             </a>
           </div>

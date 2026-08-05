@@ -27,7 +27,7 @@ export const requireAuth = (req, res, next) => {
     
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token đã hết hạn' });
+      return res.status(401).json({ error: 'Phiên đăng nhập đã hết hạn' });
     }
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Token không hợp lệ' });

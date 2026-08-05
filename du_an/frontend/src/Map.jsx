@@ -7,6 +7,7 @@ import TemperatureLayer from './components/layers/TemperatureLayer'
 import WindLayer from './components/layers/WindLayer'
 import RainfallLayer from './components/layers/RainfallLayer'
 import HumidityLayer from './components/layers/HumidityLayer'
+import { mapWeatherResponse as normalizeWeatherResponse, weatherService } from './services/weatherService.js'
 
 // Fix marker icon issue in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl
@@ -43,21 +44,10 @@ function MapClickHandler({ onClickLocation }) {
       const { lat, lng } = e.latlng;
       
       try {
-        const response = await fetch(`http://localhost:5000/api/weather/coordinates?lat=${lat}&lon=${lng}`);
-        const data = await response.json();
+        const data = await weatherService.getWeatherByCoordinates(lat, lng);
         
         if (data.success) {
-          const weatherData = {
-            ...data.data,
-            temperature: Math.round(data.data.current.temperature),
-            feelsLike: Math.round(data.data.current.feelsLike),
-            humidity: data.data.current.humidity,
-            windSpeed: data.data.current.windSpeed,
-            windDirection: data.data.current.windDirection,
-            windGust: data.data.current.windGust,
-            precipitation: data.data.current.precipitation,
-            weatherCode: data.data.current.weatherCode,
-          };
+          const weatherData = normalizeWeatherResponse(data);
           onClickLocation({
             lat,
             lng,
@@ -73,15 +63,8 @@ function MapClickHandler({ onClickLocation }) {
   return null;
 }
 
-function Map({ weather }) {
-  const [layerConfig] = useState({
-    temperature: false,
-    wind: false,
-    rainfall: false,
-    humidity: false,
-    opacity: 0.7,
-    windStyle: 'arrows'
-  })
+// 🟢 Nhận weather và layerConfig truyền trực tiếp từ Dashboard.jsx
+function Map({ weather, layerConfig = {} }) {
   const [clickedLocation, setClickedLocation] = useState(null)
 
   if (!weather || !weather.latitude || !weather.longitude) {
@@ -152,7 +135,7 @@ function Map({ weather }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
 
-        {/* Weather Layers - Các lớp dữ liệu thời tiết */}
+        {/* Weather Layers - Hiển thị theo layerConfig nhận từ Dashboard */}
         {layerConfig.temperature && (
           <TemperatureLayer 
             weather={weather} 
