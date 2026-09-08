@@ -38,21 +38,36 @@ const normalizeCity = (city) => String(city || '').trim();
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
 // ==========================================
-// OTP HELPERS - FIX LỖI IPv6
+// OTP HELPERS - CẤU HÌNH NODEMAILER TỐI ƯU CHO RENDER
 // ==========================================
 const getOtpTransporter = () => {
+  // Kiểm tra biến môi trường
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ Thiếu EMAIL_USER hoặc EMAIL_PASS trong environment');
     throw new Error('EMAIL_USER hoặc EMAIL_PASS không được cấu hình trong .env');
   }
 
-  // 👇 FIX: Vô hiệu hóa IPv6, chỉ dùng IPv4
+  console.log('📧 Đang cấu hình transporter với:');
+  console.log(`   - EMAIL_USER: ${process.env.EMAIL_USER}`);
+  console.log(`   - EMAIL_PASS: ${process.env.EMAIL_PASS ? '✅ Đã set' : '❌ Chưa set'}`);
+
+  // Cấu hình transporter với nhiều tùy chọn để tương thích với Render
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // TLS
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-    family: 4, // 👈 QUAN TRỌNG: Chỉ sử dụng IPv4
+    family: 4, // Chỉ dùng IPv4
+    tls: {
+      rejectUnauthorized: false, // Bỏ qua lỗi chứng chỉ
+    },
+    connectionTimeout: 30000, // 30 giây
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
+    debug: true, // Log chi tiết để debug
   });
 };
 
@@ -176,10 +191,11 @@ export const login = async (req, res) => {
 };
 
 // ==========================================
-// 3. GỬI OTP
+// 3. GỬI OTP - UPDATE VỚI LOG CHI TIẾT
 // ==========================================
 export const requestOtp = async (req, res) => {
-  console.log('📩 [requestOtp] Bắt đầu xử lý yêu cầu');
+  console.log('🔥🔥🔥 [requestOtp] ĐÃ ĐƯỢC GỌI! 🔥🔥🔥');
+  console.log('📦 Request body:', req.body);
 
   try {
     const { phone, email } = req.body;
@@ -193,6 +209,7 @@ export const requestOtp = async (req, res) => {
       return buildError(res, 400, 'Vui lòng nhập phone hợp lệ và email hợp lệ');
     }
 
+    console.log('🔍 Đang tìm user...');
     const user = await User.findOne({ phone: normalizedPhone }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
     );
@@ -223,26 +240,67 @@ export const requestOtp = async (req, res) => {
     user.passwordResetOtpVerifiedAt = null;
     user.passwordResetOtpTargetEmail = normalizedEmail;
     await user.save();
+    console.log('💾 OTP đã lưu vào database');
 
     console.log('📤 Đang gửi email...');
-    const transporter = getOtpTransporter();
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-      to: normalizedEmail,
-      subject: 'OTP đặt lại mật khẩu',
-      text: `Mã OTP đặt lại mật khẩu của bạn là: ${otp}. Mã này hết hạn sau ${OTP_TTL_MINUTES} phút.`,
-      html: `<p>Mã OTP đặt lại mật khẩu của bạn là <b>${otp}</b>.</p><p>Mã này hết hạn sau ${OTP_TTL_MINUTES} phút.</p>`,
-    });
-    console.log('✅ Email đã được gửi thành công!');
+    
+    // Kiểm tra transporter
+    let transporter;
+    try {
+      transporter = getOtpTransporter();
+      console.log('✅ Transporter đã được tạo');
+    } catch (err) {
+      console.error('❌ Lỗi tạo transporter:', err.message);
+      return buildError(res, 500, 'Cấu hình email chưa đúng: ' + err.message);
+    }
 
-    return buildSuccess(res, {
-      message: 'OTP đã được gửi qua Gmail',
-      data: {
-        phone: normalizedPhone,
-        email: normalizedEmail,
-        expiresInMinutes: OTP_TTL_MINUTES,
-      },
-    });
+    // Kiểm tra kết nối SMTP
+    try {
+      console.log('🔍 Kiểm tra kết nối SMTP...');
+      await transporter.verify();
+      console.log('✅ Kết nối SMTP thành công!');
+    } catch (err) {
+      console.error('❌ Lỗi kết nối SMTP:', err.message);
+      return buildError(res, 500, 'Không thể kết nối đến Gmail: ' + err.message);
+    }
+
+    // Gửi email
+    try {
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        to: normalizedEmail,
+        subject: '🔐 Mã OTP xác thực tài khoản',
+        text: `Mã OTP đặt lại mật khẩu của bạn là: ${otp}. Mã này hết hạn sau ${OTP_TTL_MINUTES} phút.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+            <h2 style="color: #2563eb;">Xác thực tài khoản</h2>
+            <p>Mã OTP của bạn là:</p>
+            <div style="background: #f3f4f6; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px;">
+              ${otp}
+            </div>
+            <p style="color: #6b7280; margin-top: 20px;">Mã OTP có hiệu lực trong ${OTP_TTL_MINUTES} phút.</p>
+          </div>
+        `,
+      };
+
+      console.log('📧 Đang gửi email tới:', normalizedEmail);
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email đã được gửi thành công!');
+      console.log('📨 Message ID:', info.messageId);
+      
+      return buildSuccess(res, {
+        message: 'OTP đã được gửi qua Gmail',
+        data: {
+          phone: normalizedPhone,
+          email: normalizedEmail,
+          expiresInMinutes: OTP_TTL_MINUTES,
+        },
+      });
+    } catch (err) {
+      console.error('❌ Lỗi gửi email:', err.message);
+      console.error('❌ Chi tiết:', err);
+      return buildError(res, 500, 'Gửi email thất bại: ' + err.message);
+    }
   } catch (error) {
     console.error('❌ LỖI requestOtp:', error);
     console.error('❌ Stack:', error.stack);
@@ -420,7 +478,7 @@ export const saveSearchHistory = async (req, res) => {
       });
     }
 
-    console.error('❌ Lỗi lưu lịch sử:', error.message);
+    console.error(' Lỗi lưu lịch sử:', error.message);
     return buildError(res, 500, 'Lỗi server');
   }
 };
@@ -443,7 +501,7 @@ export const getFavorites = async (req, res) => {
       data: user.favorites || [],
     });
   } catch (error) {
-    console.error('❌ Lỗi lấy danh sách yêu thích:', error.message);
+    console.error(' Lỗi lấy danh sách yêu thích:', error.message);
     return buildError(res, 500, 'Lỗi server khi lấy danh sách yêu thích');
   }
 };
@@ -486,7 +544,7 @@ export const addFavorite = async (req, res) => {
       data: user.favorites,
     });
   } catch (error) {
-    console.error('❌ Lỗi thêm địa điểm yêu thích:', error.message);
+    console.error(' Lỗi thêm địa điểm yêu thích:', error.message);
     return buildError(res, 500, 'Lỗi server khi thêm địa điểm yêu thích');
   }
 };
@@ -523,7 +581,7 @@ export const removeFavorite = async (req, res) => {
       data: user.favorites,
     });
   } catch (error) {
-    console.error('❌ Lỗi xóa địa điểm yêu thích:', error.message);
+    console.error(' Lỗi xóa địa điểm yêu thích:', error.message);
     return buildError(res, 500, 'Lỗi server khi xóa địa điểm yêu thích');
   }
 };
