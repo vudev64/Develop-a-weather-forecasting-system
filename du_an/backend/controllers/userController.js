@@ -38,47 +38,76 @@ const normalizeCity = (city) => String(city || '').trim();
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
 // ==========================================
-// OTP HELPERS - CẤU HÌNH NODEMAILER TỐI ƯU CHO RENDER
+// OTP HELPERS
 // ==========================================
 const getOtpTransporter = () => {
-  // Kiểm tra biến môi trường
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.error('❌ Thiếu EMAIL_USER hoặc EMAIL_PASS trong environment');
     throw new Error('EMAIL_USER hoặc EMAIL_PASS không được cấu hình trong .env');
   }
 
-  console.log('📧 Đang cấu hình transporter với:');
-  console.log(`   - EMAIL_USER: ${process.env.EMAIL_USER}`);
-  console.log(`   - EMAIL_PASS: ${process.env.EMAIL_PASS ? '✅ Đã set' : '❌ Chưa set'}`);
-
-  // Cấu hình transporter với nhiều tùy chọn để tương thích với Render
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // TLS
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-    family: 4, // Chỉ dùng IPv4
-    tls: {
-      rejectUnauthorized: false, // Bỏ qua lỗi chứng chỉ
-    },
+    family: 4,
     connectionTimeout: 30000, // 30 giây
     greetingTimeout: 30000,
     socketTimeout: 30000,
-    debug: true, // Log chi tiết để debug
   });
 };
 
-const generateOtp = () => {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  return otp;
-};
+const generateOtp = () => crypto.randomInt(10 ** (OTP_LENGTH - 1), 10 ** OTP_LENGTH).toString();
 
 const hashOtp = (otp) => crypto.createHash('sha256').update(String(otp)).digest('hex');
 
 const isOtpExpired = (expiresAt) => !expiresAt || new Date(expiresAt).getTime() < Date.now();
+
+const buildOtpMessage = (otp, recipient) => ({
+  from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+  to: recipient,
+  subject: 'Mã OTP xác thực tài khoản',
+  text: `Mã OTP đặt lại mật khẩu của bạn là: ${otp}. Mã này hết hạn sau ${OTP_TTL_MINUTES} phút.`,
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #2563eb;">Xác thực tài khoản</h2>
+      <p>Mã OTP của bạn là:</p>
+      <div style="background: #f3f4f6; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px;">${otp}</div>
+      <p style="color: #6b7280; margin-top: 20px;">Mã OTP có hiệu lực trong ${OTP_TTL_MINUTES} phút.</p>
+    </div>
+  `,
+});
+
+const sendOtpEmail = async (otp, recipient) => {
+  const message = buildOtpMessage(otp, recipient);
+
+  if (process.env.RESEND_API_KEY) {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(`Resend ${response.status}: ${details}`);
+    }
+
+    return response.json();
+  }
+
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error('Cần cấu hình RESEND_API_KEY hoặc EMAIL_USER và EMAIL_PASS');
+  }
+
+  return getOtpTransporter().sendMail(message);
+};
 
 // ==========================================
 // RESPONSE BUILDERS
@@ -194,33 +223,25 @@ export const login = async (req, res) => {
 // 3. GỬI OTP - UPDATE VỚI LOG CHI TIẾT
 // ==========================================
 export const requestOtp = async (req, res) => {
-  console.log('🔥🔥🔥 [requestOtp] ĐÃ ĐƯỢC GỌI! 🔥🔥🔥');
-  console.log('📦 Request body:', req.body);
-
   try {
     const { phone, email } = req.body;
-    console.log(`📩 Phone: ${phone}, Email: ${email}`);
 
     const normalizedPhone = normalizePhone(phone);
     const normalizedEmail = normalizeEmail(email);
 
     if (!isValidPhone(normalizedPhone) || !normalizedEmail) {
-      console.log('❌ Validation thất bại');
       return buildError(res, 400, 'Vui lòng nhập phone hợp lệ và email hợp lệ');
     }
 
-    console.log('🔍 Đang tìm user...');
     const user = await User.findOne({ phone: normalizedPhone }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
     );
 
     if (!user) {
-      console.log('❌ Không tìm thấy user');
       return buildError(res, 404, 'Không tìm thấy tài khoản với số điện thoại này');
     }
 
     if (user.email && user.email.toLowerCase() !== normalizedEmail) {
-      console.log('❌ Email không khớp');
       return buildError(res, 400, 'Email không khớp với tài khoản');
     }
 
@@ -228,9 +249,7 @@ export const requestOtp = async (req, res) => {
       user.email = normalizedEmail;
     }
 
-    console.log('🔢 Đang tạo OTP...');
     const otp = generateOtp();
-    console.log(`🔢 OTP: ${otp}`);
 
     const otpHash = hashOtp(otp);
     const otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
@@ -240,56 +259,11 @@ export const requestOtp = async (req, res) => {
     user.passwordResetOtpVerifiedAt = null;
     user.passwordResetOtpTargetEmail = normalizedEmail;
     await user.save();
-    console.log('💾 OTP đã lưu vào database');
 
-    console.log('📤 Đang gửi email...');
-    
-    // Kiểm tra transporter
-    let transporter;
     try {
-      transporter = getOtpTransporter();
-      console.log('✅ Transporter đã được tạo');
-    } catch (err) {
-      console.error('❌ Lỗi tạo transporter:', err.message);
-      return buildError(res, 500, 'Cấu hình email chưa đúng: ' + err.message);
-    }
-
-    // Kiểm tra kết nối SMTP
-    try {
-      console.log('🔍 Kiểm tra kết nối SMTP...');
-      await transporter.verify();
-      console.log('✅ Kết nối SMTP thành công!');
-    } catch (err) {
-      console.error('❌ Lỗi kết nối SMTP:', err.message);
-      return buildError(res, 500, 'Không thể kết nối đến Gmail: ' + err.message);
-    }
-
-    // Gửi email
-    try {
-      const mailOptions = {
-        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-        to: normalizedEmail,
-        subject: '🔐 Mã OTP xác thực tài khoản',
-        text: `Mã OTP đặt lại mật khẩu của bạn là: ${otp}. Mã này hết hạn sau ${OTP_TTL_MINUTES} phút.`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-            <h2 style="color: #2563eb;">Xác thực tài khoản</h2>
-            <p>Mã OTP của bạn là:</p>
-            <div style="background: #f3f4f6; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px;">
-              ${otp}
-            </div>
-            <p style="color: #6b7280; margin-top: 20px;">Mã OTP có hiệu lực trong ${OTP_TTL_MINUTES} phút.</p>
-          </div>
-        `,
-      };
-
-      console.log('📧 Đang gửi email tới:', normalizedEmail);
-      const info = await transporter.sendMail(mailOptions);
-      console.log('✅ Email đã được gửi thành công!');
-      console.log('📨 Message ID:', info.messageId);
-      
+      await sendOtpEmail(otp, normalizedEmail);
       return buildSuccess(res, {
-        message: 'OTP đã được gửi qua Gmail',
+        message: 'OTP đã được gửi qua email',
         data: {
           phone: normalizedPhone,
           email: normalizedEmail,
@@ -297,13 +271,11 @@ export const requestOtp = async (req, res) => {
         },
       });
     } catch (err) {
-      console.error('❌ Lỗi gửi email:', err.message);
-      console.error('❌ Chi tiết:', err);
+      console.error('❌ Lỗi gửi OTP:', err.message);
       return buildError(res, 500, 'Gửi email thất bại: ' + err.message);
     }
   } catch (error) {
-    console.error('❌ LỖI requestOtp:', error);
-    console.error('❌ Stack:', error.stack);
+    console.error('❌ Lỗi request OTP:', error.message);
     return buildError(res, 500, 'Không thể gửi OTP: ' + error.message);
   }
 };

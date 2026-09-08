@@ -1,20 +1,10 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
-import nodemailer from 'nodemailer';
 
-// Transporter Nodemailer cho Gmail
-export const getTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // App Password: leufknnmojpnmqzo
-    },
-  });
-};
-
-// Response Helpers
+// ==========================================
+// RESPONSE HELPERS
+// ==========================================
 export const buildAuthResponse = (res, { status = 200, message, user, token, extra = {} }) => {
   return res.status(status).json({
     success: true,
@@ -33,7 +23,9 @@ export const buildAuthError = (res, status, message, extra = {}) => {
   });
 };
 
-// 1. Google Auth Callback
+// ==========================================
+// 1. GOOGLE AUTH CALLBACK
+// ==========================================
 export const googleAuthCallback = async (req, res) => {
   try {
     const user = req.user;
@@ -66,12 +58,14 @@ export const googleAuthCallback = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Lỗi Google Auth:', error.message);
+    console.error('❌ Lỗi Google Auth:', error.message);
     return buildAuthError(res, 500, error.message);
   }
 };
 
-// 2. Verify Google Token (Client-side)
+// ==========================================
+// 2. VERIFY GOOGLE TOKEN (CLIENT-SIDE)
+// ==========================================
 export const verifyGoogleToken = async (req, res) => {
   try {
     const { credential } = req.body;
@@ -140,10 +134,12 @@ export const verifyGoogleToken = async (req, res) => {
   }
 };
 
-// 3. ✅ CẬP NHẬT: Lấy thông tin user hiện tại (getCurrentUser) bao gồm searchHistory & favorites
+// ==========================================
+// 3. GET CURRENT USER (bao gồm searchHistory & favorites)
+// ==========================================
 export const getCurrentUser = async (req, res) => {
   try {
-    const userId = req.userId; // Lấy từ auth middleware
+    const userId = req.userId;
     const user = await User.findById(userId);
 
     if (!user) {
@@ -160,18 +156,19 @@ export const getCurrentUser = async (req, res) => {
         fullName: user.fullName,
         picture: user.picture,
         createdAt: user.createdAt,
-        // ✅ ĐÃ BỔ SUNG: Trả về danh sách yêu thích và lịch sử tìm kiếm
         favorites: user.favorites || [],
         searchHistory: user.searchHistory || [],
       },
     });
   } catch (error) {
-    console.error('Lỗi get user:', error.message);
+    console.error('❌ Lỗi get user:', error.message);
     return buildAuthError(res, 500, 'Lỗi server khi lấy thông tin user');
   }
 };
 
-// 4. Logout
+// ==========================================
+// 4. LOGOUT
+// ==========================================
 export const logout = async (req, res) => {
   try {
     return buildAuthResponse(res, {
@@ -185,114 +182,7 @@ export const logout = async (req, res) => {
 };
 
 // ==========================================
-// CÁC HÀM XỬ LÝ OTP & RESET PASSWORD
+// ⚠️ LƯU Ý: OTP ĐÃ ĐƯỢC CHUYỂN SANG userController.js
 // ==========================================
-
-// 5. Bước 1: Yêu cầu gửi mã OTP
-export const requestOtp = async (req, res) => {
-  try {
-    const { phone, email } = req.body;
-
-    if (!phone || !email) {
-      return buildAuthError(res, 400, 'Vui lòng cung cấp đầy đủ số điện thoại và email');
-    }
-
-    const user = await User.findOne({ phone });
-    if (!user) {
-      return buildAuthError(res, 404, 'Số điện thoại này chưa được đăng ký tài khoản');
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // ✅ Gán giá trị bắt buộc giải quyết triệt để lỗi Validation
-    user.passwordResetOtp = otp;
-    user.passwordResetOtpExpires = Date.now() + 10 * 60 * 1000; // Hiệu lực 10 phút
-    user.passwordResetOtpTargetEmail = email;
-
-    await user.save();
-
-    const transporter = getTransporter();
-    await transporter.sendMail({
-      from: `"Hỗ hỗ trợ Khôi phục Mật khẩu" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Mã xác thực OTP đặt lại mật khẩu',
-      html: `
-        <h3>Yêu cầu đặt lại mật khẩu</h3>
-        <p>Mã OTP của bạn là: <strong style="font-size: 20px; color: #2563eb;">${otp}</strong></p>
-        <p>Mã này có hiệu lực trong vòng 10 phút. Vui lòng không chia sẻ mã này cho bất kỳ ai.</p>
-      `,
-    });
-
-    return buildAuthResponse(res, {
-      message: 'Mã OTP đã được gửi đến email của bạn.',
-      user: null,
-    });
-  } catch (error) {
-    console.error('❌ Lỗi request OTP:', error.message);
-    return buildAuthError(res, 500, error.message);
-  }
-};
-
-// 6. Bước 2: Xác thực mã OTP
-export const verifyOtp = async (req, res) => {
-  try {
-    const { phone, otp } = req.body;
-    if (!phone || !otp) {
-      return buildAuthError(res, 400, 'Vui lòng nhập đầy đủ số điện thoại và mã OTP');
-    }
-
-    const user = await User.findOne({
-      phone,
-      passwordResetOtp: otp,
-      passwordResetOtpExpires: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return buildAuthError(res, 400, 'Mã OTP không đúng hoặc đã hết hạn');
-    }
-
-    return buildAuthResponse(res, {
-      message: 'Xác thực OTP thành công',
-      user: null,
-    });
-  } catch (error) {
-    console.error('❌ Lỗi verify OTP:', error.message);
-    return buildAuthError(res, 500, error.message);
-  }
-};
-
-// 7. Bước 3: Đặt lại mật khẩu mới
-export const resetPassword = async (req, res) => {
-  try {
-    const { phone, newPassword, otp } = req.body;
-    if (!phone || !newPassword || !otp) {
-      return buildAuthError(res, 400, 'Thiếu thông tin để đặt lại mật khẩu');
-    }
-
-    const user = await User.findOne({
-      phone,
-      passwordResetOtp: otp,
-      passwordResetOtpExpires: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return buildAuthError(res, 400, 'Mã OTP không hợp lệ hoặc phiên làm việc đã hết hạn');
-    }
-
-    // Cập nhật mật khẩu mới & Dọn dẹp OTP
-    user.password = newPassword;
-    user.passwordResetOtp = undefined;
-    user.passwordResetOtpExpires = undefined;
-    user.passwordResetOtpTargetEmail = undefined;
-
-    await user.save();
-
-    return buildAuthResponse(res, {
-      message: 'Đặt lại mật khẩu thành công',
-      user: null,
-    });
-  } catch (error) {
-    console.error('❌ Lỗi reset password:', error.message);
-    return buildAuthError(res, 500, error.message);
-  }
-};
+// Các hàm requestOtp, verifyOtp, resetPassword hiện nằm ở userController.js
+// Không duplicate code ở đây để tránh nhầm lẫn.
