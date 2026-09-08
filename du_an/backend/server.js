@@ -3,6 +3,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs'; 
 import { fileURLToPath } from 'url';
 import connectDB, { getDbState } from './config/database.js';
 import weatherRoutes from './routes/weatherRoutes.js';
@@ -16,6 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
 const rawPort = process.env.PORT || process.env.BACKEND_PORT;
 
 if (!rawPort) {
@@ -25,7 +27,7 @@ if (!rawPort) {
 const PORT = Number(rawPort);
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// 1. CHUẨN HÓA CORS ORIGINS
+// 1. CHUẨN HÓA CORS ORIGINS - FIX LỖI CORS
 const parseOrigins = () => {
   const envOrigins = [process.env.CORS_ORIGINS, process.env.FRONTEND_URL]
     .filter(Boolean)
@@ -33,26 +35,43 @@ const parseOrigins = () => {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  // Mặc định luôn có FRONTEND_URL nếu khai báo
+  // 👇 THÊM LOCALHOST TỰ ĐỘNG KHI DEVELOPMENT
+  if (NODE_ENV !== 'production') {
+    const localOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:5000',
+      'http://localhost:5001',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000'
+    ];
+    envOrigins.push(...localOrigins);
+    console.log('🔧 Development mode: Added localhost origins');
+  }
+
+  // 👇 THÊM URL DEPLOY MẶC ĐỊNH (ĐỀ PHÒNG QUÊN SET ENV)
+  if (NODE_ENV === 'production' && envOrigins.length === 0) {
+    console.warn('⚠️ No CORS origins specified in production, adding default');
+    envOrigins.push('https://develop-a-weather-forecasting-syste.vercel.app');
+  }
+
   return [...new Set(envOrigins)];
 };
 
 const allowedOrigins = parseOrigins();
+console.log('✅ Allowed Origins:', allowedOrigins);
 
 // 2. MIDDLEWARE CORS BẢO MẬT
 app.use(cors({
   origin: (origin, callback) => {
-    // Cho phép request không có origin (Server-to-Server, Postman, Mobile App)
     if (!origin) {
       return callback(null, true);
     }
 
-    // Nếu môi trường Dev mà không set origin -> cho phép pass
     if (NODE_ENV !== 'production' && allowedOrigins.length === 0) {
       return callback(null, true);
     }
 
-    // Kiểm tra origin có nằm trong whitelist không
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
@@ -66,7 +85,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// 3. RATE LIMITING CHUNG CHO API (100 req / 15 phút)
+// 3. RATE LIMITING
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -89,9 +108,9 @@ const start = async () => {
   // Routes
   app.use('/api/weather', weatherRoutes);
   app.use('/api/users', userRoutes);
-  app.use('/api/auth', authRoutes); // Bỏ authLimiter ở cấp router chung để tránh chặn /me khi F5
+  app.use('/api/auth', authRoutes);
 
-  // Health Check Endpoint
+  // Health Check
   app.get('/api/health', (req, res) => {
     const dbState = getDbState();
     const ok = dbState.connected;
@@ -106,12 +125,32 @@ const start = async () => {
     });
   });
 
-  // Serve static files in production (Nếu deploy Monolith)
+  // 👇 FIX LỖI SERVE STATIC FILES - ENOENT
   if (NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, '../frontend/dist')));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-    });
+    const frontendDist = path.join(__dirname, '../frontend/dist');
+    
+    if (fs.existsSync(frontendDist)) {
+      app.use(express.static(frontendDist));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(frontendDist, 'index.html'));
+      });
+      console.log('✅ Serving frontend from:', frontendDist);
+    } else {
+      console.log('⚠️ Frontend dist not found, running in API-only mode');
+      app.get('/', (req, res) => {
+        res.json({
+          message: 'Weather API Server is running!',
+          health: '/api/health',
+          environment: NODE_ENV
+        });
+      });
+      app.use((req, res) => {
+        res.status(404).json({ 
+          error: 'API endpoint not found',
+          path: req.path 
+        });
+      });
+    }
   } else {
     app.get('/', (req, res) => {
       res.json({
@@ -121,7 +160,7 @@ const start = async () => {
     });
   }
 
-  // Error handler middleware (Phải ở cuối cùng)
+  // Error handler middleware
   app.use(errorHandler);
 
   const server = app.listen(PORT, () => {
