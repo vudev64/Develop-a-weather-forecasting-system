@@ -38,23 +38,24 @@ const normalizeCity = (city) => String(city || '').trim();
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
 // ==========================================
-// OTP HELPERS - FIX QUAN TRỌNG
+// OTP HELPERS - FIX LỖI IPv6
 // ==========================================
 const getOtpTransporter = () => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error('EMAIL_USER hoặc EMAIL_PASS không được cấu hình trong .env');
   }
 
+  // 👇 FIX: Vô hiệu hóa IPv6, chỉ dùng IPv4
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    family: 4, // 👈 QUAN TRỌNG: Chỉ sử dụng IPv4
   });
 };
 
-// ✅ FIX: Sử dụng Math.random thay vì crypto.randomInt để tương thích 100%
 const generateOtp = () => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   return otp;
@@ -175,10 +176,9 @@ export const login = async (req, res) => {
 };
 
 // ==========================================
-// 3. GỬI OTP - FIX LOGIC VÀ ERROR HANDLING
+// 3. GỬI OTP
 // ==========================================
 export const requestOtp = async (req, res) => {
-  // Log đầu tiên để biết API đã được gọi
   console.log('📩 [requestOtp] Bắt đầu xử lý yêu cầu');
 
   try {
@@ -189,11 +189,10 @@ export const requestOtp = async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
 
     if (!isValidPhone(normalizedPhone) || !normalizedEmail) {
-      console.log('❌ Validation thất bại: phone hoặc email không hợp lệ');
+      console.log('❌ Validation thất bại');
       return buildError(res, 400, 'Vui lòng nhập phone hợp lệ và email hợp lệ');
     }
 
-    console.log('🔍 Đang tìm user với phone:', normalizedPhone);
     const user = await User.findOne({ phone: normalizedPhone }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
     );
@@ -214,7 +213,7 @@ export const requestOtp = async (req, res) => {
 
     console.log('🔢 Đang tạo OTP...');
     const otp = generateOtp();
-    console.log(`🔢 OTP được tạo: ${otp}`);
+    console.log(`🔢 OTP: ${otp}`);
 
     const otpHash = hashOtp(otp);
     const otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
@@ -224,7 +223,6 @@ export const requestOtp = async (req, res) => {
     user.passwordResetOtpVerifiedAt = null;
     user.passwordResetOtpTargetEmail = normalizedEmail;
     await user.save();
-    console.log('💾 OTP đã được lưu vào database');
 
     console.log('📤 Đang gửi email...');
     const transporter = getOtpTransporter();
@@ -246,8 +244,8 @@ export const requestOtp = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ LỖI requestOtp CHI TIẾT:', error);
-    console.error('❌ Stack trace:', error.stack);
+    console.error('❌ LỖI requestOtp:', error);
+    console.error('❌ Stack:', error.stack);
     return buildError(res, 500, 'Không thể gửi OTP: ' + error.message);
   }
 };
@@ -431,7 +429,6 @@ export const saveSearchHistory = async (req, res) => {
 // 7. FAVORITES API
 // ==========================================
 
-// 7.1 Lấy danh sách yêu thích
 export const getFavorites = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
@@ -451,7 +448,6 @@ export const getFavorites = async (req, res) => {
   }
 };
 
-// 7.2 Thêm địa điểm yêu thích
 export const addFavorite = async (req, res) => {
   try {
     const { cityName, lat, lon } = req.body;
@@ -495,7 +491,6 @@ export const addFavorite = async (req, res) => {
   }
 };
 
-// 7.3 Xóa địa điểm yêu thích
 export const removeFavorite = async (req, res) => {
   try {
     const { cityName } = req.params;
