@@ -4,10 +4,16 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
+// ==========================================
+// CẤU HÌNH
+// ==========================================
 const OTP_TTL_MINUTES = 10;
 const HISTORY_LIMIT = 20;
 const OTP_LENGTH = 6;
 
+// ==========================================
+// VALIDATION
+// ==========================================
 const PHONE_REGEX = /^(\+?[0-9]{9,15}|0[0-9]{9})$/;
 const CITY_REGEX = /^[\p{L}\s.'-]{2,80}$/u;
 
@@ -24,10 +30,16 @@ const isValidPassword = (pwd) => {
 
 const isValidCity = (city) => CITY_REGEX.test(String(city || '').trim());
 
+// ==========================================
+// NORMALIZE HELPERS
+// ==========================================
 const normalizePhone = (phone) => String(phone || '').trim();
 const normalizeCity = (city) => String(city || '').trim();
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
+// ==========================================
+// OTP HELPERS - FIX QUAN TRỌNG
+// ==========================================
 const getOtpTransporter = () => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error('EMAIL_USER hoặc EMAIL_PASS không được cấu hình trong .env');
@@ -42,9 +54,9 @@ const getOtpTransporter = () => {
   });
 };
 
+// ✅ FIX: Sử dụng Math.random thay vì crypto.randomInt để tương thích 100%
 const generateOtp = () => {
-  const max = 10 ** OTP_LENGTH;
-  const otp = crypto.randomInt(0, max).toString().padStart(OTP_LENGTH, '0');
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
   return otp;
 };
 
@@ -52,6 +64,9 @@ const hashOtp = (otp) => crypto.createHash('sha256').update(String(otp)).digest(
 
 const isOtpExpired = (expiresAt) => !expiresAt || new Date(expiresAt).getTime() < Date.now();
 
+// ==========================================
+// RESPONSE BUILDERS
+// ==========================================
 const buildSuccess = (res, { data = null, message = 'OK', status = 200, token }) => {
   return res.status(status).json({
     success: true,
@@ -68,7 +83,9 @@ const buildError = (res, status, message) => {
   });
 };
 
-// Đăng ký
+// ==========================================
+// 1. ĐĂNG KÝ
+// ==========================================
 export const register = async (req, res) => {
   try {
     const { phone, username, password } = req.body;
@@ -79,20 +96,17 @@ export const register = async (req, res) => {
       return buildError(res, 400, 'Vui lòng nhập phone hợp lệ và mật khẩu đủ mạnh');
     }
 
-    // Kiểm tra user đã tồn tại
     const existingUser = await User.findOne({ phone: normalizedPhone });
     if (existingUser) {
       return buildError(res, 400, 'Số điện thoại đã tồn tại');
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Tạo user mới
-    const newUser = new User({ 
+    const newUser = new User({
       phone: normalizedPhone,
-      username: normalizedUsername || normalizedPhone, 
-      password: hashedPassword 
+      username: normalizedUsername || normalizedPhone,
+      password: hashedPassword,
     });
     await newUser.save();
 
@@ -105,14 +119,15 @@ export const register = async (req, res) => {
         username: newUser.username,
       },
     });
-
   } catch (error) {
-    console.error('Lỗi đăng ký:', error.message);
+    console.error('❌ Lỗi đăng ký:', error.message);
     return buildError(res, 500, 'Lỗi server');
   }
 };
 
-// Đăng nhập
+// ==========================================
+// 2. ĐĂNG NHẬP
+// ==========================================
 export const login = async (req, res) => {
   try {
     const { phone, password } = req.body;
@@ -122,20 +137,17 @@ export const login = async (req, res) => {
       return buildError(res, 400, 'Vui lòng nhập phone hợp lệ và mật khẩu');
     }
 
-    // Tìm user
     const user = await User.findOne({ phone: normalizedPhone }).select('+password');
 
     if (!user) {
       return buildError(res, 401, 'Số điện thoại hoặc mật khẩu không đúng');
     }
 
-    // So sánh password với hash
     const isValidPasswordHash = await bcrypt.compare(password, user.password);
     if (!isValidPasswordHash) {
       return buildError(res, 401, 'Số điện thoại hoặc mật khẩu không đúng');
     }
 
-    // Tạo JWT token
     if (!process.env.JWT_SECRET) {
       throw new Error('JWT_SECRET không được cấu hình');
     }
@@ -154,33 +166,45 @@ export const login = async (req, res) => {
         username: user.username,
         favorites: user.favorites || [],
         searchHistory: user.searchHistory || [],
-      }
+      },
     });
-
   } catch (error) {
-    console.error('Lỗi đăng nhập:', error.message);
+    console.error('❌ Lỗi đăng nhập:', error.message);
     return buildError(res, 500, 'Lỗi server');
   }
 };
 
-// Request OTP qua Gmail
+// ==========================================
+// 3. GỬI OTP - FIX LOGIC VÀ ERROR HANDLING
+// ==========================================
 export const requestOtp = async (req, res) => {
+  // Log đầu tiên để biết API đã được gọi
+  console.log('📩 [requestOtp] Bắt đầu xử lý yêu cầu');
+
   try {
     const { phone, email } = req.body;
+    console.log(`📩 Phone: ${phone}, Email: ${email}`);
+
     const normalizedPhone = normalizePhone(phone);
     const normalizedEmail = normalizeEmail(email);
 
     if (!isValidPhone(normalizedPhone) || !normalizedEmail) {
+      console.log('❌ Validation thất bại: phone hoặc email không hợp lệ');
       return buildError(res, 400, 'Vui lòng nhập phone hợp lệ và email hợp lệ');
     }
 
-    const user = await User.findOne({ phone: normalizedPhone }).select('+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail');
+    console.log('🔍 Đang tìm user với phone:', normalizedPhone);
+    const user = await User.findOne({ phone: normalizedPhone }).select(
+      '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
+    );
 
     if (!user) {
+      console.log('❌ Không tìm thấy user');
       return buildError(res, 404, 'Không tìm thấy tài khoản với số điện thoại này');
     }
 
     if (user.email && user.email.toLowerCase() !== normalizedEmail) {
+      console.log('❌ Email không khớp');
       return buildError(res, 400, 'Email không khớp với tài khoản');
     }
 
@@ -188,7 +212,10 @@ export const requestOtp = async (req, res) => {
       user.email = normalizedEmail;
     }
 
+    console.log('🔢 Đang tạo OTP...');
     const otp = generateOtp();
+    console.log(`🔢 OTP được tạo: ${otp}`);
+
     const otpHash = hashOtp(otp);
     const otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
@@ -197,7 +224,9 @@ export const requestOtp = async (req, res) => {
     user.passwordResetOtpVerifiedAt = null;
     user.passwordResetOtpTargetEmail = normalizedEmail;
     await user.save();
+    console.log('💾 OTP đã được lưu vào database');
 
+    console.log('📤 Đang gửi email...');
     const transporter = getOtpTransporter();
     await transporter.sendMail({
       from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
@@ -206,6 +235,7 @@ export const requestOtp = async (req, res) => {
       text: `Mã OTP đặt lại mật khẩu của bạn là: ${otp}. Mã này hết hạn sau ${OTP_TTL_MINUTES} phút.`,
       html: `<p>Mã OTP đặt lại mật khẩu của bạn là <b>${otp}</b>.</p><p>Mã này hết hạn sau ${OTP_TTL_MINUTES} phút.</p>`,
     });
+    console.log('✅ Email đã được gửi thành công!');
 
     return buildSuccess(res, {
       message: 'OTP đã được gửi qua Gmail',
@@ -215,14 +245,16 @@ export const requestOtp = async (req, res) => {
         expiresInMinutes: OTP_TTL_MINUTES,
       },
     });
-
   } catch (error) {
-    console.error('Lỗi request OTP:', error.message);
-    return buildError(res, 500, 'Không thể gửi OTP');
+    console.error('❌ LỖI requestOtp CHI TIẾT:', error);
+    console.error('❌ Stack trace:', error.stack);
+    return buildError(res, 500, 'Không thể gửi OTP: ' + error.message);
   }
 };
 
-// Verify OTP
+// ==========================================
+// 4. XÁC THỰC OTP
+// ==========================================
 export const verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
@@ -233,7 +265,9 @@ export const verifyOtp = async (req, res) => {
       return buildError(res, 400, 'Vui lòng nhập phone hợp lệ và OTP 6 chữ số');
     }
 
-    const user = await User.findOne({ phone: normalizedPhone }).select('+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail');
+    const user = await User.findOne({ phone: normalizedPhone }).select(
+      '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
+    );
 
     if (!user || !user.passwordResetOtpHash || !user.passwordResetOtpExpiresAt) {
       return buildError(res, 400, 'OTP không hợp lệ hoặc chưa được yêu cầu');
@@ -258,94 +292,15 @@ export const verifyOtp = async (req, res) => {
         verifiedAt: user.passwordResetOtpVerifiedAt,
       },
     });
-
   } catch (error) {
-    console.error('Lỗi verify OTP:', error.message);
+    console.error('❌ Lỗi verify OTP:', error.message);
     return buildError(res, 500, 'Không thể xác thực OTP');
   }
 };
 
-// Lưu lịch sử tìm kiếm (optional - chỉ save nếu user login)
-export const saveSearchHistory = async (req, res) => {
-  try {
-    const { city } = req.body;
-    const normalizedCity = normalizeCity(city);
-
-    if (!isValidCity(normalizedCity)) {
-      return buildError(res, 400, 'Vui lòng nhập tên thành phố hợp lệ');
-    }
-
-    // Lấy token từ header
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.split(' ')[1];
-
-    // Nếu không có token, return success nhưng không lưu
-    if (!token) {
-      console.log('⚠️ Save search history: User chưa login, skip lưu');
-      return buildSuccess(res, {
-        message: 'Tìm kiếm thành công (không lưu lịch sử)',
-        data: {
-          saved: false,
-          tip: 'Đăng nhập để lưu lịch sử tìm kiếm'
-        }
-      });
-    }
-
-    // Verify token
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET không được cấu hình');
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.id;
-
-    // Lưu lịch sử cho user login
-    const user = await User.findById(userId);
-    if (!user) {
-      return buildError(res, 404, 'Không tìm thấy user');
-    }
-
-    const existingHistory = Array.isArray(user.searchHistory) ? user.searchHistory : [];
-    const normalizedExisting = existingHistory
-      .map((item) => ({ city: String(item.city || '').trim(), searchedAt: item.searchedAt || item.createdAt || new Date() }))
-      .filter((item) => item.city);
-
-    const dedupedHistory = [
-      { city: normalizedCity, searchedAt: new Date() },
-      ...normalizedExisting.filter((item) => item.city.toLowerCase() !== normalizedCity.toLowerCase())
-    ].slice(0, HISTORY_LIMIT);
-
-    user.searchHistory = dedupedHistory;
-    await user.save();
-
-    console.log(`✅ Lưu search history: ${normalizedCity} cho user ${user.username}`);
-    return buildSuccess(res, {
-      message: 'Đã lưu lịch sử tìm kiếm',
-      data: {
-        saved: true,
-        historyCount: dedupedHistory.length,
-      }
-    });
-
-  } catch (error) {
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      // Token invalid, skip lưu nhưng return success
-      console.log('⚠️ Token invalid, skip lưu search history');
-      return buildSuccess(res, {
-        message: 'Tìm kiếm thành công (không lưu lịch sử)',
-        data: {
-          saved: false,
-          tip: 'Đăng nhập để lưu lịch sử tìm kiếm'
-        }
-      });
-    }
-    
-    console.error('Lỗi lưu lịch sử:', error.message);
-    return buildError(res, 500, 'Lỗi server');
-  }
-};
-
-// Reset mật khẩu
+// ==========================================
+// 5. ĐẶT LẠI MẬT KHẨU
+// ==========================================
 export const resetPassword = async (req, res) => {
   try {
     const { phone, newPassword, otp } = req.body;
@@ -356,8 +311,9 @@ export const resetPassword = async (req, res) => {
       return buildError(res, 400, 'Vui lòng nhập phone hợp lệ, OTP hợp lệ và mật khẩu đủ mạnh');
     }
 
-    // Tìm user theo số điện thoại
-    const user = await User.findOne({ phone: normalizedPhone }).select('+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail +password');
+    const user = await User.findOne({ phone: normalizedPhone }).select(
+      '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail +password'
+    );
     if (!user) {
       return buildError(res, 404, 'Không tìm thấy tài khoản với số điện thoại này');
     }
@@ -374,7 +330,6 @@ export const resetPassword = async (req, res) => {
       return buildError(res, 400, 'OTP không chính xác');
     }
 
-    // Hash mật khẩu mới
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     user.passwordResetOtpHash = undefined;
@@ -387,21 +342,96 @@ export const resetPassword = async (req, res) => {
       message: 'Đặt lại mật khẩu thành công',
       data: {
         phone: normalizedPhone,
-        resetAt: new Date().toISOString()
-      }
+        resetAt: new Date().toISOString(),
+      },
     });
-
   } catch (error) {
-    console.error('Lỗi reset mật khẩu:', error.message);
+    console.error('❌ Lỗi reset mật khẩu:', error.message);
     return buildError(res, 500, 'Lỗi server');
   }
 };
 
 // ==========================================
-// 🌟 PROMPT 3: BỔ SUNG FAVORITES API (GET, POST, DELETE)
+// 6. LƯU LỊCH SỬ TÌM KIẾM
+// ==========================================
+export const saveSearchHistory = async (req, res) => {
+  try {
+    const { city } = req.body;
+    const normalizedCity = normalizeCity(city);
+
+    if (!isValidCity(normalizedCity)) {
+      return buildError(res, 400, 'Vui lòng nhập tên thành phố hợp lệ');
+    }
+
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+
+    if (!token) {
+      console.log('⚠️ Save search history: User chưa login, skip lưu');
+      return buildSuccess(res, {
+        message: 'Tìm kiếm thành công (không lưu lịch sử)',
+        data: {
+          saved: false,
+          tip: 'Đăng nhập để lưu lịch sử tìm kiếm',
+        },
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET không được cấu hình');
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return buildError(res, 404, 'Không tìm thấy user');
+    }
+
+    const existingHistory = Array.isArray(user.searchHistory) ? user.searchHistory : [];
+    const normalizedExisting = existingHistory
+      .map((item) => ({ city: String(item.city || '').trim(), searchedAt: item.searchedAt || item.createdAt || new Date() }))
+      .filter((item) => item.city);
+
+    const dedupedHistory = [
+      { city: normalizedCity, searchedAt: new Date() },
+      ...normalizedExisting.filter((item) => item.city.toLowerCase() !== normalizedCity.toLowerCase()),
+    ].slice(0, HISTORY_LIMIT);
+
+    user.searchHistory = dedupedHistory;
+    await user.save();
+
+    console.log(`✅ Lưu search history: ${normalizedCity} cho user ${user.username}`);
+    return buildSuccess(res, {
+      message: 'Đã lưu lịch sử tìm kiếm',
+      data: {
+        saved: true,
+        historyCount: dedupedHistory.length,
+      },
+    });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      console.log('⚠️ Token invalid, skip lưu search history');
+      return buildSuccess(res, {
+        message: 'Tìm kiếm thành công (không lưu lịch sử)',
+        data: {
+          saved: false,
+          tip: 'Đăng nhập để lưu lịch sử tìm kiếm',
+        },
+      });
+    }
+
+    console.error('❌ Lỗi lưu lịch sử:', error.message);
+    return buildError(res, 500, 'Lỗi server');
+  }
+};
+
+// ==========================================
+// 7. FAVORITES API
 // ==========================================
 
-// 1. Lấy danh sách yêu thích
+// 7.1 Lấy danh sách yêu thích
 export const getFavorites = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
@@ -416,12 +446,12 @@ export const getFavorites = async (req, res) => {
       data: user.favorites || [],
     });
   } catch (error) {
-    console.error('Lỗi lấy danh sách yêu thích:', error.message);
+    console.error('❌ Lỗi lấy danh sách yêu thích:', error.message);
     return buildError(res, 500, 'Lỗi server khi lấy danh sách yêu thích');
   }
 };
 
-// 2. Thêm địa điểm vào danh sách yêu thích
+// 7.2 Thêm địa điểm yêu thích
 export const addFavorite = async (req, res) => {
   try {
     const { cityName, lat, lon } = req.body;
@@ -438,7 +468,6 @@ export const addFavorite = async (req, res) => {
       return buildError(res, 404, 'Không tìm thấy tài khoản');
     }
 
-    // Kiểm tra xem đã tồn tại trong danh sách chưa
     const favorites = Array.isArray(user.favorites) ? user.favorites : [];
     const isExist = favorites.some((fav) => String(fav.cityName || '').toLowerCase() === normalizedCity.toLowerCase());
 
@@ -461,12 +490,12 @@ export const addFavorite = async (req, res) => {
       data: user.favorites,
     });
   } catch (error) {
-    console.error('Lỗi thêm địa điểm yêu thích:', error.message);
+    console.error('❌ Lỗi thêm địa điểm yêu thích:', error.message);
     return buildError(res, 500, 'Lỗi server khi thêm địa điểm yêu thích');
   }
 };
 
-// 3. Xóa địa điểm khỏi danh sách yêu thích
+// 7.3 Xóa địa điểm yêu thích
 export const removeFavorite = async (req, res) => {
   try {
     const { cityName } = req.params;
@@ -499,7 +528,7 @@ export const removeFavorite = async (req, res) => {
       data: user.favorites,
     });
   } catch (error) {
-    console.error('Lỗi xóa địa điểm yêu thích:', error.message);
+    console.error('❌ Lỗi xóa địa điểm yêu thích:', error.message);
     return buildError(res, 500, 'Lỗi server khi xóa địa điểm yêu thích');
   }
 };
