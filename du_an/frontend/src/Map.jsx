@@ -38,9 +38,11 @@ const getWindIcon = (direction) => {
 }
 
 // Component xử lý click trên bản đồ
-function MapClickHandler({ onClickLocation }) {
+function MapClickHandler({ onClickLocation, enabled = true }) {
   useMapEvents({
     click: async (e) => {
+      if (!enabled) return
+
       const { lat, lng } = e.latlng;
       
       try {
@@ -64,7 +66,7 @@ function MapClickHandler({ onClickLocation }) {
 }
 
 // 🟢 Nhận weather và layerConfig truyền trực tiếp từ Dashboard.jsx
-function Map({ weather, layerConfig = {} }) {
+function Map({ weather, layerConfig = {}, showWeatherDetails = true }) {
   const [clickedLocation, setClickedLocation] = useState(null)
 
   if (!weather || !weather.latitude || !weather.longitude) {
@@ -74,6 +76,9 @@ function Map({ weather, layerConfig = {} }) {
   const position = [weather.latitude, weather.longitude]
   const tempColor = getTemperatureColor(weather.temperature)
   const windIcon = getWindIcon(weather.windDirection || 0)
+  const locationLabel = showWeatherDetails && weather.country
+    ? `${weather.city}, ${weather.country}`
+    : weather.city
 
   // Lấy dữ liệu dự báo 24h tiếp theo từ hourly data
   const getNext24HourForecast = () => {
@@ -99,29 +104,31 @@ function Map({ weather, layerConfig = {} }) {
   }
 
   return (
-    <div className="map-wrapper">
+    <div className={`map-wrapper ${showWeatherDetails ? '' : 'public-map-expanded'}`}>
       <div className="map-header">
-        <h3>🗺️ Bản đồ Thời Tiết: {weather.city}, {weather.country}</h3>
-        <div className="weather-legend">
-          <div className="legend-item">
-            <span className="legend-label">🌡️ Nhiệt độ:</span>
-            <span className="legend-value" style={{color: tempColor, fontWeight: 'bold'}}>
-              {weather.temperature}°C
-            </span>
+        <h3>🗺️ Bản đồ Thời Tiết: {locationLabel}</h3>
+        {showWeatherDetails && (
+          <div className="weather-legend">
+            <div className="legend-item">
+              <span className="legend-label">🌡️ Nhiệt độ:</span>
+              <span className="legend-value" style={{color: tempColor, fontWeight: 'bold'}}>
+                {weather.temperature}°C
+              </span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-label">💨 Gió:</span>
+              <span className="legend-value">{windIcon} {weather.windSpeed.toFixed(1)} m/s</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-label">💧 Độ ẩm:</span>
+              <span className="legend-value">{weather.humidity}%</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-label">🌧️ Mưa:</span>
+              <span className="legend-value">{weather.precipitation} mm</span>
+            </div>
           </div>
-          <div className="legend-item">
-            <span className="legend-label">💨 Gió:</span>
-            <span className="legend-value">{windIcon} {weather.windSpeed.toFixed(1)} m/s</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-label">💧 Độ ẩm:</span>
-            <span className="legend-value">{weather.humidity}%</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-label">🌧️ Mưa:</span>
-            <span className="legend-value">{weather.precipitation} mm</span>
-          </div>
-        </div>
+        )}
       </div>
 
       <MapContainer 
@@ -170,63 +177,70 @@ function Map({ weather, layerConfig = {} }) {
         )}
 
         {/* Circle hiển thị vùng ảnh hưởng nhiệt độ */}
-        <Circle 
-          center={position} 
-          radius={50000} 
-          pathOptions={{ 
-            color: tempColor, 
-            fill: true, 
-            fillOpacity: 0.1,
-            weight: 2
-          }} 
-        />
+        {showWeatherDetails && (
+          <Circle 
+            center={position} 
+            radius={50000} 
+            pathOptions={{ 
+              color: tempColor, 
+              fill: true, 
+              fillOpacity: 0.1,
+              weight: 2
+            }} 
+          />
+        )}
 
         {/* Map Click Handler - Xử lý click trên bản đồ */}
-        <MapClickHandler onClickLocation={setClickedLocation} />
+        <MapClickHandler
+          onClickLocation={setClickedLocation}
+          enabled={showWeatherDetails}
+        />
 
-        {/* Marker chính */}
-        <Marker position={position}>
-          <Popup>
-            <div className="weather-popup">
-              <div className="popup-header">
-                <strong>📍 {weather.city}</strong>
+        {/* Marker chính chỉ hiển thị sau khi đăng nhập */}
+        {showWeatherDetails && (
+          <Marker position={position}>
+            <Popup>
+              <div className="weather-popup">
+                <div className="popup-header">
+                  <strong>{weather.city}</strong>
+                </div>
+                <div className="popup-content">
+                  <div className="popup-row">
+                    <span>🌡️ Nhiệt độ:</span>
+                    <span>{weather.temperature}°C (cảm giác {weather.feelsLike}°C)</span>
+                  </div>
+                  <div className="popup-row">
+                    <span>🌤️ Thời tiết:</span>
+                    <span>{weather.description}</span>
+                  </div>
+                  <div className="popup-row">
+                    <span>💨 Gió:</span>
+                    <span>{weather.windSpeed.toFixed(1)} m/s {windIcon}</span>
+                  </div>
+                  <div className="popup-row">
+                    <span>🌀 Gió giật:</span>
+                    <span>{weather.windGust.toFixed(1)} m/s</span>
+                  </div>
+                  <div className="popup-row">
+                    <span>💧 Độ ẩm:</span>
+                    <span>{weather.humidity}%</span>
+                  </div>
+                  <div className="popup-row">
+                    <span>🧭 Hướng gió:</span>
+                    <span>{weather.windDirection}°</span>
+                  </div>
+                  <div className="popup-row">
+                    <span>🌧️ Lượng mưa:</span>
+                    <span>{weather.precipitation} mm</span>
+                  </div>
+                </div>
               </div>
-              <div className="popup-content">
-                <div className="popup-row">
-                  <span>🌡️ Nhiệt độ:</span>
-                  <span>{weather.temperature}°C (cảm giác {weather.feelsLike}°C)</span>
-                </div>
-                <div className="popup-row">
-                  <span>🌤️ Thời tiết:</span>
-                  <span>{weather.description}</span>
-                </div>
-                <div className="popup-row">
-                  <span>💨 Gió:</span>
-                  <span>{weather.windSpeed.toFixed(1)} m/s {windIcon}</span>
-                </div>
-                <div className="popup-row">
-                  <span>🌀 Gió giật:</span>
-                  <span>{weather.windGust.toFixed(1)} m/s</span>
-                </div>
-                <div className="popup-row">
-                  <span>💧 Độ ẩm:</span>
-                  <span>{weather.humidity}%</span>
-                </div>
-                <div className="popup-row">
-                  <span>🧭 Hướng gió:</span>
-                  <span>{weather.windDirection}°</span>
-                </div>
-                <div className="popup-row">
-                  <span>🌧️ Lượng mưa:</span>
-                  <span>{weather.precipitation} mm</span>
-                </div>
-              </div>
-            </div>
-          </Popup>
-        </Marker>
+            </Popup>
+          </Marker>
+        )}
 
         {/* Marker cho clicked location */}
-        {clickedLocation && (
+        {showWeatherDetails && clickedLocation && (
           <Marker position={[clickedLocation.lat, clickedLocation.lng]} icon={L.icon({
             iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -238,7 +252,7 @@ function Map({ weather, layerConfig = {} }) {
             <Popup>
               <div className="weather-popup">
                 <div className="popup-header">
-                  <strong>📍 {clickedLocation.weather.city}</strong>
+                  <strong>{clickedLocation.weather.city}</strong>
                   <button 
                     onClick={() => setClickedLocation(null)} 
                     style={{
@@ -287,7 +301,7 @@ function Map({ weather, layerConfig = {} }) {
       </MapContainer>
 
       {/* Dự báo từng giờ */}
-      {hourly24.length > 0 && (
+      {showWeatherDetails && hourly24.length > 0 && (
         <div className="forecast-section">
           <h4>📊 Dự báo 24 giờ tiếp theo</h4>
           <div className="forecast-scroll">

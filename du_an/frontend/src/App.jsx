@@ -166,7 +166,12 @@ function AppRoutes() {
       <Routes>
         <Route
           path="/"
-          element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <PublicHome onGoToLogin={handleOpenLoginModal} />}
+          element={isAuthenticated ? <Navigate to="/dashboard" replace /> : (
+            <PublicHome
+              onGoToLogin={handleOpenLoginModal}
+              isAuthenticated={isAuthenticated}
+            />
+          )}
         />
         <Route
           path="/dashboard"

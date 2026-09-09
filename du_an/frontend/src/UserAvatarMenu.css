@@ -222,3 +222,27 @@
 .dropdown-logout-btn:hover {
   background: #dc2626;
 }
+
+@media (max-width: 640px) {
+  .avatar-dropdown {
+    position: fixed;
+    top: 64px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+
+  .avatar-dropdown-header {
+    padding: 14px;
+  }
+
+  .info-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .info-value {
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+}

@@ -45,8 +45,8 @@ const buildWeatherData = (data) => {
  * PublicMap - Bản đồ thời tiết cho trang public
  * Hiển thị bản đồ mặc định + cho phép search thành phố
  */
-function PublicMap() {
-  const [city, setCity] = useState('Hanoi')
+function PublicMap({ onRequireLogin, isAuthenticated }) {
+  const [city, setCity] = useState('')
   const [weather, setWeather] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -78,6 +78,11 @@ function PublicMap() {
   const handleSearch = (e) => {
     e.preventDefault()
     if (city.trim()) {
+      if (!isAuthenticated) {
+        onRequireLogin()
+        return
+      }
+
       fetchWeather(city)
     }
   }
@@ -118,7 +123,7 @@ function PublicMap() {
       )}
 
       {/* Map Component */}
-      {weather && <Map weather={weather} />}
+      {weather && <Map weather={weather} showWeatherDetails={isAuthenticated} />}
     </div>
   )
 }

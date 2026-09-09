@@ -1,7 +1,7 @@
 import './PublicHome.css'
 import PublicMap from './PublicMap'
 
-function PublicHome({ onGoToLogin }) {
+function PublicHome({ onGoToLogin, isAuthenticated }) {
   return (
     <div className="public-home">
       <div className="public-header">
@@ -12,7 +12,7 @@ function PublicHome({ onGoToLogin }) {
       </div>
 
       {/* Public Map - Hiển thị ngay khi vừa vào */}
-      <PublicMap />
+      <PublicMap onRequireLogin={onGoToLogin} isAuthenticated={isAuthenticated} />
 
       {/* Tìm hiểu thêm section */}
       <div className="public-info-section">

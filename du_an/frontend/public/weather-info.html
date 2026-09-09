@@ -14,7 +14,8 @@
         body {
             font-family: Arial, sans-serif;
             background-color: #f0f9ff;
-            padding: 20px;
+            padding: clamp(10px, 3vw, 20px);
+            overflow-x: hidden;
         }
 
         .container {
@@ -34,6 +35,7 @@
         .header h1 {
             font-size: 2rem;
             margin-bottom: 10px;
+            overflow-wrap: anywhere;
         }
 
         .scroll-bar-container {
@@ -125,7 +127,7 @@
             border-radius: 10px;
             padding: 20px;
             border: 2px solid #e5e7eb;
-            cursor: grab;
+            cursor: pointer;
             position: relative;
             user-select: none;
             transition: box-shadow 0.2s ease;
@@ -285,6 +287,15 @@
                 max-height: 1000px;
             }
 
+            .scroll-bar-container {
+                padding: 10px;
+            }
+
+            .scroll-button {
+                min-width: 40px;
+                min-height: 40px;
+            }
+
             .weather-card-wrapper {
                 flex: 0 0 calc(100% - 0px);
                 min-width: 100%;
@@ -298,6 +309,59 @@
 
             .weather-card h2 {
                 font-size: 1.3rem;
+            }
+
+            .impact-section,
+            .solution-section {
+                padding: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 22px 16px;
+                margin-bottom: 18px;
+            }
+
+            .header h1 {
+                font-size: 1.35rem;
+            }
+
+            .scroll-bar-container {
+                gap: 6px;
+                margin-bottom: 14px;
+            }
+
+            .weather-grid {
+                margin-bottom: 20px;
+                padding: 6px 0;
+            }
+
+            .weather-card {
+                padding: 16px;
+            }
+
+            .weather-card-header {
+                gap: 10px;
+            }
+
+            .weather-card h2 {
+                font-size: 1.15rem;
+                overflow-wrap: anywhere;
+            }
+
+            .weather-details li {
+                font-size: 0.95rem;
+                overflow-wrap: anywhere;
+            }
+
+            .footer-note {
+                padding: 16px;
+            }
+
+            .back-button {
+                max-width: none;
+                width: 100%;
             }
         }
     </style>
@@ -495,42 +559,8 @@
                 
                 wrapper.appendChild(card);
                 grid.appendChild(wrapper);
-                addDragFunctionality(card);
             }
             updateScrollThumb();
-        }
-
-        function addDragFunctionality(card) {
-            var isDragging = false;
-            var offsetX = 0;
-            var offsetY = 0;
-
-            card.addEventListener('mousedown', function(e) {
-                isDragging = true;
-                card.classList.add('dragging');
-                
-                var rect = card.getBoundingClientRect();
-                offsetX = e.clientX - rect.left;
-                offsetY = e.clientY - rect.top;
-                
-                if (card.style.position !== 'fixed') {
-                    card.style.position = 'fixed';
-                }
-            });
-
-            document.addEventListener('mousemove', function(e) {
-                if (isDragging) {
-                    card.style.left = (e.clientX - offsetX) + 'px';
-                    card.style.top = (e.clientY - offsetY) + 'px';
-                }
-            });
-
-            document.addEventListener('mouseup', function() {
-                if (isDragging) {
-                    isDragging = false;
-                    card.classList.remove('dragging');
-                }
-            });
         }
 
         function updateScrollThumb() {

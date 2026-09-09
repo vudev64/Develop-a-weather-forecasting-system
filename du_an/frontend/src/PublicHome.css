@@ -17,6 +17,7 @@
 .public-header h1 {
   margin: 0;
   font-size: 1.8rem;
+  min-width: 0;
 }
 
 .login-btn {
@@ -162,6 +163,7 @@
 
   .public-header h1 {
     font-size: 1.5rem;
+    text-align: center;
   }
 
   .login-btn {
@@ -189,5 +191,33 @@
 
   .cta-btn {
     width: 90%;
+  }
+}
+
+@media (max-width: 480px) {
+  .public-header h1 {
+    font-size: 1.25rem;
+    line-height: 1.35;
+  }
+
+  .public-map-wrapper {
+    min-height: 420px;
+  }
+
+  .public-search-bar {
+    padding: 10px;
+  }
+
+  .public-search-btn,
+  .public-search-input {
+    min-height: 44px;
+  }
+
+  .public-info-section {
+    padding: 30px 15px;
+  }
+
+  .public-info-section p {
+    font-size: 0.95rem;
   }
 }

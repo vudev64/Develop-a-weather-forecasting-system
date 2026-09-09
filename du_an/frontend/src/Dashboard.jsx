@@ -163,7 +163,7 @@ function Dashboard({ username, onLogout }) {
 
             {weather && (
               <div className="weather-info">
-                <h3>{weather.city}, {weather.country}</h3>
+                <h3>{weather.city}{weather.country && `, ${weather.country}`}</h3>
                 <div className="weather-details">
                   <div className="temperature">
                     <span className="temp">{weather.temperature}°C</span>

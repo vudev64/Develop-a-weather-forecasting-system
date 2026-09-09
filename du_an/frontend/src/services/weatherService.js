@@ -43,11 +43,13 @@ const handleResponse = async (response) => {
 
 const normalizeWeatherPayload = (data) => {
   const current = data?.data?.current || {}
+  const rawCity = data?.data?.city || ''
+  const rawCountry = data?.data?.country || ''
 
   return {
     ...data?.data,
-    city: data?.data?.city || '',
-    country: data?.data?.country || '',
+    city: rawCity.replace(/^thành phố\s+/i, '').trim(),
+    country: rawCountry === 'Unknown' ? '' : rawCountry,
     latitude: data?.data?.latitude,
     longitude: data?.data?.longitude,
     temperature: Math.round(current.temperature ?? 0),
