@@ -184,16 +184,12 @@ export const requestOtp = async (req, res) => {
     const normalizedPhone = normalizePhone(phone);
     const normalizedEmail = normalizeEmail(email);
 
-    if (!normalizedPhone && !normalizedEmail) {
-      return buildError(res, 400, 'Vui lòng cung cấp số điện thoại hoặc email');
+    if (!isValidPhone(normalizedPhone) || !normalizedEmail) {
+      return buildError(res, 400, 'Vui lòng cung cấp số điện thoại và email hợp lệ');
     }
 
-    // Xây dựng điều kiện query an toàn
-    const queryConditions = [];
-    if (normalizedEmail) queryConditions.push({ email: normalizedEmail });
-    if (normalizedPhone) queryConditions.push({ phone: normalizedPhone });
-
-    const user = await User.findOne({ $or: queryConditions }).select(
+    // Phone identifies the account; email is only the OTP delivery address.
+    const user = await User.findOne({ phone: normalizedPhone }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
     );
 
@@ -201,21 +197,7 @@ export const requestOtp = async (req, res) => {
       return buildError(res, 404, 'Không tìm thấy tài khoản với thông tin này');
     }
 
-    if (normalizedPhone && user.phone && normalizePhone(user.phone) !== normalizedPhone) {
-      return buildError(res, 400, 'Số điện thoại không khớp với tài khoản email này');
-    }
-
-    // Google accounts may not have a phone initially. Save the verified phone
-    // supplied during the recovery flow so later steps use one identity.
-    if (normalizedPhone && !user.phone) {
-      user.phone = normalizedPhone;
-    }
-
-    const targetEmail = normalizedEmail || user.email;
-
-    if (!targetEmail) {
-      return buildError(res, 400, 'Tài khoản này chưa được liên kết email để nhận OTP');
-    }
+    const targetEmail = normalizedEmail;
 
     // Tạo mã OTP
     const otp = generateOtp();
@@ -258,26 +240,17 @@ export const requestOtp = async (req, res) => {
 // 4. XÁC THỰC OTP
 export const verifyOtp = async (req, res) => {
   try {
-    const { phone, email, otp } = req.body;
+    const { phone, otp } = req.body;
     const normalizedPhone = normalizePhone(phone);
-    const normalizedEmail = normalizeEmail(email);
     const sanitizedOtp = String(otp || '').trim();
 
-    console.log('🔍 Đang xác thực OTP cho:', { normalizedPhone, normalizedEmail, sanitizedOtp });
+    console.log('🔍 Đang xác thực OTP cho:', { normalizedPhone });
 
-    if ((!normalizedPhone && !normalizedEmail) || !/^\d{6}$/.test(sanitizedOtp)) {
-      return buildError(res, 400, 'Vui lòng cung cấp thông tin tài khoản và OTP 6 chữ số hợp lệ');
+    if (!isValidPhone(normalizedPhone) || !/^\d{6}$/.test(sanitizedOtp)) {
+      return buildError(res, 400, 'Vui lòng cung cấp số điện thoại và OTP 6 chữ số hợp lệ');
     }
 
-    const queryConditions = [];
-    if (normalizedEmail) queryConditions.push({ email: normalizedEmail });
-    if (normalizedPhone) {
-      queryConditions.push({ phone: normalizedPhone });
-      // Thêm điều kiện tìm kiếm không phân biệt khoảng trắng hoặc dạng có/không số 0 đầu nếu cần
-      queryConditions.push({ phone: normalizedPhone.replace(/^0/, '+84') });
-    }
-
-    const user = await User.findOne({ $or: queryConditions }).select(
+    const user = await User.findOne({ phone: normalizedPhone }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
     );
 
@@ -322,20 +295,15 @@ export const verifyOtp = async (req, res) => {
 // 5. ĐẶT LẠI MẬT KHẨU
 export const resetPassword = async (req, res) => {
   try {
-    const { phone, email, newPassword, otp } = req.body;
+    const { phone, newPassword, otp } = req.body;
     const normalizedPhone = normalizePhone(phone);
-    const normalizedEmail = normalizeEmail(email);
     const sanitizedOtp = String(otp || '').trim();
 
-    if ((!normalizedPhone && !normalizedEmail) || !isValidPassword(newPassword) || !/^\d{6}$/.test(sanitizedOtp)) {
-      return buildError(res, 400, 'Vui lòng cung cấp thông tin tài khoản, OTP hợp lệ và mật khẩu đủ mạnh');
+    if (!isValidPhone(normalizedPhone) || !isValidPassword(newPassword) || !/^\d{6}$/.test(sanitizedOtp)) {
+      return buildError(res, 400, 'Vui lòng cung cấp số điện thoại, OTP hợp lệ và mật khẩu đủ mạnh');
     }
 
-    const queryConditions = [];
-    if (normalizedEmail) queryConditions.push({ email: normalizedEmail });
-    if (normalizedPhone) queryConditions.push({ phone: normalizedPhone });
-
-    const user = await User.findOne({ $or: queryConditions }).select(
+    const user = await User.findOne({ phone: normalizedPhone }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail +password'
     );
     if (!user) {
