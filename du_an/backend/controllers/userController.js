@@ -33,18 +33,21 @@ const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
 // OTP TRANSPORTER & HELPERS (ĐÃ CẬP NHẬT CẤU HÌNH AN TOÀN CHO RENDER)
 const getOtpTransporter = () => {
-  // Lấy App Password và loại bỏ toàn bộ khoảng trắng
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const smtpSecure = String(
+    process.env.SMTP_SECURE ?? (smtpPort === 465 ? 'true' : 'false')
+  ).toLowerCase() === 'true';
   const smtpPassword = String(process.env.EMAIL_PASS || '').replace(/\s+/g, '');
 
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: 465, // 🔴 Cố định Port 465 SSL để tránh lỗi chặn kết nối
-    secure: true, // 🔴 Bắt buộc true đối với port 465
+    port: smtpPort,
+    secure: smtpSecure,
     auth: {
       user: process.env.EMAIL_USER,
       pass: smtpPassword,
     },
-    family: 4, // 🔴 CỰC KỲ QUAN TRỌNG: Bắt buộc dùng IPv4 để khắc phục lỗi ENETUNREACH trên Render
+    family: 4,
     connectionTimeout: 20000,
     greetingTimeout: 20000,
     socketTimeout: 20000,
