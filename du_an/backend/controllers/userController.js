@@ -2,7 +2,7 @@ import User from '../models/User.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 // CẤU HÌNH
 const OTP_TTL_MINUTES = 10;
@@ -31,38 +31,13 @@ const normalizePhone = (phone) => String(phone || '').trim();
 const normalizeCity = (city) => String(city || '').trim();
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
-// OTP TRANSPORTER & HELPERS (ĐÃ CẬP NHẬT CẤU HÌNH AN TOÀN CHO RENDER)
-const getOtpTransporter = () => {
-  const smtpPort = Number(process.env.SMTP_PORT || 587);
-  const smtpSecure = String(
-    process.env.SMTP_SECURE ?? (smtpPort === 465 ? 'true' : 'false')
-  ).toLowerCase() === 'true';
-  const smtpPassword = String(process.env.EMAIL_PASS || '').replace(/\s+/g, '');
-
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: smtpPort,
-    secure: smtpSecure,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: smtpPassword,
-    },
-    family: 4,
-    connectionTimeout: 20000,
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
-  });
-};
-
 const generateOtp = () => crypto.randomInt(10 ** (OTP_LENGTH - 1), 10 ** OTP_LENGTH).toString();
 
 const hashOtp = (otp) => crypto.createHash('sha256').update(String(otp)).digest('hex');
 
 const isOtpExpired = (expiresAt) => !expiresAt || new Date(expiresAt).getTime() < Date.now();
 
-const buildOtpMessage = (otp, recipient) => ({
-  from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-  to: recipient,
+const buildOtpMessage = (otp) => ({
   subject: 'Mã OTP xác thực tài khoản',
   text: `Mã OTP đặt lại mật khẩu của bạn là: ${otp}. Mã này hết hạn sau ${OTP_TTL_MINUTES} phút.`,
   html: `
@@ -75,14 +50,27 @@ const buildOtpMessage = (otp, recipient) => ({
   `,
 });
 
-// Gửi mail trực tiếp qua Gmail SMTP
+// Gửi OTP qua Resend API, không phụ thuộc SMTP outbound của hosting.
 const sendOtpEmail = async (otp, recipient) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error('Chưa cấu hình EMAIL_USER hoặc EMAIL_PASS trong Environment Variables');
+  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) {
+    throw new Error('Chưa cấu hình RESEND_API_KEY hoặc RESEND_FROM_EMAIL trên server');
   }
 
-  const message = buildOtpMessage(otp, recipient);
-  return getOtpTransporter().sendMail(message);
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { data, error } = await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL,
+    to: [recipient],
+    ...buildOtpMessage(otp),
+  });
+
+  if (error) {
+    const resendError = new Error(error.message || 'Resend rejected the email');
+    resendError.code = error.name || 'RESEND_ERROR';
+    resendError.responseCode = error.statusCode;
+    throw resendError;
+  }
+
+  return data;
 };
 
 const buildSuccess = (res, { data = null, message = 'OK', status = 200, token }) => {
