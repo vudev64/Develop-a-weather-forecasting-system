@@ -253,11 +253,11 @@ export const verifyOtp = async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
     const sanitizedOtp = String(otp || '').trim();
 
+    // Cho phép xác thực qua phone HOẶC email, miễn là có OTP 6 chữ số
     if ((!normalizedPhone && !normalizedEmail) || !/^\d{6}$/.test(sanitizedOtp)) {
-      return buildError(res, 400, 'Vui lòng cung cấp số điện thoại hoặc email hợp lệ và OTP 6 chữ số');
+      return buildError(res, 400, 'Vui lòng cung cấp thông tin tài khoản và OTP 6 chữ số hợp lệ');
     }
 
-    // Xây dựng điều kiện tìm kiếm linh hoạt giống hệt lúc requestOtp
     const queryConditions = [];
     if (normalizedEmail) queryConditions.push({ email: normalizedEmail });
     if (normalizedPhone) queryConditions.push({ phone: normalizedPhone });
@@ -290,7 +290,7 @@ export const verifyOtp = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Lỗi verify OTP:', error.message);
+    console.error('❌ Lỗi verify OTP:', error.message);
     return buildError(res, 500, 'Không thể xác thực OTP');
   }
 };
