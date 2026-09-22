@@ -42,7 +42,7 @@ function ForgotPasswordForm({
     setLoading(true)
     setError('')
     try {
-      await authService.verifyOtp(phone, otp)
+      await authService.verifyOtp(phone, email, otp)
       setSuccess('Xác thực mã OTP thành công. Vui lòng nhập mật khẩu mới.')
       setStep(3)
     } catch (err) {
@@ -61,7 +61,7 @@ function ForgotPasswordForm({
     setLoading(true)
     setError('')
     try {
-      await authService.resetPassword(phone, newPassword, otp)
+      await authService.resetPassword(phone, email, newPassword, otp)
       setSuccess('Đổi mật khẩu thành công! Bạn có thể đăng nhập ngay bây giờ.')
       setTimeout(() => {
         onBackToLogin()

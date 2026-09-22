@@ -312,15 +312,20 @@ export const verifyOtp = async (req, res) => {
 // 5. ĐẶT LẠI MẬT KHẨU
 export const resetPassword = async (req, res) => {
   try {
-    const { phone, newPassword, otp } = req.body;
+    const { phone, email, newPassword, otp } = req.body;
     const normalizedPhone = normalizePhone(phone);
+    const normalizedEmail = normalizeEmail(email);
     const sanitizedOtp = String(otp || '').trim();
 
-    if (!isValidPhone(normalizedPhone) || !isValidPassword(newPassword) || !/^\d{6}$/.test(sanitizedOtp)) {
-      return buildError(res, 400, 'Vui lòng nhập phone hợp lệ, OTP hợp lệ và mật khẩu đủ mạnh');
+    if ((!normalizedPhone && !normalizedEmail) || !isValidPassword(newPassword) || !/^\d{6}$/.test(sanitizedOtp)) {
+      return buildError(res, 400, 'Vui lòng cung cấp thông tin tài khoản, OTP hợp lệ và mật khẩu đủ mạnh');
     }
 
-    const user = await User.findOne({ phone: normalizedPhone }).select(
+    const queryConditions = [];
+    if (normalizedEmail) queryConditions.push({ email: normalizedEmail });
+    if (normalizedPhone) queryConditions.push({ phone: normalizedPhone });
+
+    const user = await User.findOne({ $or: queryConditions }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail +password'
     );
     if (!user) {

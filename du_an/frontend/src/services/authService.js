@@ -106,12 +106,13 @@ export const authService = {
     }
   },
 
-  resetPassword: async (phone, newPassword, otp) => {
+  resetPassword: async (phone, email, newPassword, otp) => {
     const response = await fetch(ENDPOINTS.USERS.RESET_PASSWORD, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         phone,
+        email,
         newPassword,
         otp
       })
@@ -128,11 +129,11 @@ export const authService = {
     return handleResponse(response);
   },
 
-  verifyOtp: async (phone, otp) => {
+  verifyOtp: async (phone, email, otp) => {
     const response = await fetch(ENDPOINTS.USERS.VERIFY_OTP, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, otp })
+      body: JSON.stringify({ phone, email, otp })
     });
     return handleResponse(response);
   }
