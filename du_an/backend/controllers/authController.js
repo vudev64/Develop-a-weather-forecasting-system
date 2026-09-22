@@ -134,9 +134,7 @@ export const verifyGoogleToken = async (req, res) => {
   }
 };
 
-// ==========================================
 // 3. GET CURRENT USER (bao gồm searchHistory & favorites)
-// ==========================================
 export const getCurrentUser = async (req, res) => {
   try {
     const userId = req.userId;
@@ -166,9 +164,7 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
-// ==========================================
 // 4. LOGOUT
-// ==========================================
 export const logout = async (req, res) => {
   try {
     return buildAuthResponse(res, {
@@ -181,8 +177,6 @@ export const logout = async (req, res) => {
   }
 };
 
-// ==========================================
 // ⚠️ LƯU Ý: OTP ĐÃ ĐƯỢC CHUYỂN SANG userController.js
-// ==========================================
 // Các hàm requestOtp, verifyOtp, resetPassword hiện nằm ở userController.js
 // Không duplicate code ở đây để tránh nhầm lẫn.

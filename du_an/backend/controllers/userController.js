@@ -4,16 +4,12 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
-// ==========================================
 // CẤU HÌNH
-// ==========================================
 const OTP_TTL_MINUTES = 10;
 const HISTORY_LIMIT = 20;
 const OTP_LENGTH = 6;
 
-// ==========================================
 // VALIDATION
-// ==========================================
 const PHONE_REGEX = /^(\+?[0-9]{9,15}|0[0-9]{9})$/;
 const CITY_REGEX = /^[\p{L}\s.'-]{2,80}$/u;
 
@@ -30,16 +26,12 @@ const isValidPassword = (pwd) => {
 
 const isValidCity = (city) => CITY_REGEX.test(String(city || '').trim());
 
-// ==========================================
 // NORMALIZE HELPERS
-// ==========================================
 const normalizePhone = (phone) => String(phone || '').trim();
 const normalizeCity = (city) => String(city || '').trim();
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
-// ==========================================
 // OTP HELPERS
-// ==========================================
 const getOtpTransporter = () => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error('EMAIL_USER hoặc EMAIL_PASS không được cấu hình trong .env');
@@ -109,9 +101,7 @@ const sendOtpEmail = async (otp, recipient) => {
   return getOtpTransporter().sendMail(message);
 };
 
-// ==========================================
 // RESPONSE BUILDERS
-// ==========================================
 const buildSuccess = (res, { data = null, message = 'OK', status = 200, token }) => {
   return res.status(status).json({
     success: true,
@@ -128,9 +118,8 @@ const buildError = (res, status, message) => {
   });
 };
 
-// ==========================================
+
 // 1. ĐĂNG KÝ
-// ==========================================
 export const register = async (req, res) => {
   try {
     const { phone, username, password } = req.body;
@@ -170,9 +159,7 @@ export const register = async (req, res) => {
   }
 };
 
-// ==========================================
 // 2. ĐĂNG NHẬP
-// ==========================================
 export const login = async (req, res) => {
   try {
     const { phone, password } = req.body;
@@ -219,9 +206,7 @@ export const login = async (req, res) => {
   }
 };
 
-// ==========================================
-// 3. GỬI OTP - UPDATE VỚI LOG CHI TIẾT
-// ==========================================
+// 3. GỬI OTP 
 export const requestOtp = async (req, res) => {
   try {
     const { phone, email } = req.body;
@@ -241,16 +226,18 @@ export const requestOtp = async (req, res) => {
       return buildError(res, 404, 'Không tìm thấy tài khoản với số điện thoại này');
     }
 
-    if (user.email && user.email.toLowerCase() !== normalizedEmail) {
+    // Xử lý logic gán/kiểm tra email chống đụng Unique Key
+    if (!user.email) {
+      const emailOwner = await User.findOne({ email: normalizedEmail });
+      if (emailOwner && emailOwner._id.toString() !== user._id.toString()) {
+        return buildError(res, 400, 'Email này đã được đăng ký bởi tài khoản khác');
+      }
+      user.email = normalizedEmail;
+    } else if (user.email.toLowerCase() !== normalizedEmail) {
       return buildError(res, 400, 'Email không khớp với tài khoản');
     }
 
-    if (!user.email) {
-      user.email = normalizedEmail;
-    }
-
     const otp = generateOtp();
-
     const otpHash = hashOtp(otp);
     const otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
@@ -258,6 +245,8 @@ export const requestOtp = async (req, res) => {
     user.passwordResetOtpExpiresAt = otpExpiresAt;
     user.passwordResetOtpVerifiedAt = null;
     user.passwordResetOtpTargetEmail = normalizedEmail;
+
+    // Lưu lại user (Lúc này không bao giờ bị dính lỗi E11000 nữa)
     await user.save();
 
     try {
@@ -280,9 +269,7 @@ export const requestOtp = async (req, res) => {
   }
 };
 
-// ==========================================
 // 4. XÁC THỰC OTP
-// ==========================================
 export const verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
@@ -326,9 +313,7 @@ export const verifyOtp = async (req, res) => {
   }
 };
 
-// ==========================================
 // 5. ĐẶT LẠI MẬT KHẨU
-// ==========================================
 export const resetPassword = async (req, res) => {
   try {
     const { phone, newPassword, otp } = req.body;
@@ -379,9 +364,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// ==========================================
 // 6. LƯU LỊCH SỬ TÌM KIẾM
-// ==========================================
 export const saveSearchHistory = async (req, res) => {
   try {
     const { city } = req.body;
@@ -455,10 +438,7 @@ export const saveSearchHistory = async (req, res) => {
   }
 };
 
-// ==========================================
 // 7. FAVORITES API
-// ==========================================
-
 export const getFavorites = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
