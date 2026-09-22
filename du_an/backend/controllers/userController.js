@@ -31,24 +31,20 @@ const normalizePhone = (phone) => String(phone || '').trim();
 const normalizeCity = (city) => String(city || '').trim();
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
-// OTP HELPERS
+// OTP TRANSPORTER & HELPERS
 const getOtpTransporter = () => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error('EMAIL_USER hoặc EMAIL_PASS không được cấu hình trong .env');
-  }
-
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // Dùng SSL với Port 465
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      pass: process.env.EMAIL_PASS, // Mật khẩu ứng dụng 16 ký tự từ Google
     },
-    family: 4,
-    connectionTimeout: 30000, // 30 giây
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
+    family: 4, // BẮT BUỘC: Ép dùng IPv4 để tránh lỗi ENETUNREACH trên Render
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
   });
 };
 
@@ -73,35 +69,16 @@ const buildOtpMessage = (otp, recipient) => ({
   `,
 });
 
+// Gửi mail trực tiếp qua Gmail SMTP (cho phép gửi đến mọi email người dùng)
 const sendOtpEmail = async (otp, recipient) => {
-  const message = buildOtpMessage(otp, recipient);
-
-  if (process.env.RESEND_API_KEY) {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(message),
-    });
-
-    if (!response.ok) {
-      const details = await response.text();
-      throw new Error(`Resend ${response.status}: ${details}`);
-    }
-
-    return response.json();
-  }
-
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error('Cần cấu hình RESEND_API_KEY hoặc EMAIL_USER và EMAIL_PASS');
+    throw new Error('Chưa cấu hình EMAIL_USER hoặc EMAIL_PASS trong Environment Variables');
   }
 
+  const message = buildOtpMessage(otp, recipient);
   return getOtpTransporter().sendMail(message);
 };
 
-// RESPONSE BUILDERS
 const buildSuccess = (res, { data = null, message = 'OK', status = 200, token }) => {
   return res.status(status).json({
     success: true,
@@ -117,7 +94,6 @@ const buildError = (res, status, message) => {
     error: message,
   });
 };
-
 
 // 1. ĐĂNG KÝ
 export const register = async (req, res) => {
@@ -243,7 +219,7 @@ export const requestOtp = async (req, res) => {
     const otpHash = hashOtp(otp);
     const otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
-    // Lưu OTP vào User tìm thấy (Không đụng chạm hay chỉnh sửa field user.email)
+    // Lưu OTP vào User tìm thấy
     user.passwordResetOtpHash = otpHash;
     user.passwordResetOtpExpiresAt = otpExpiresAt;
     user.passwordResetOtpVerifiedAt = null;

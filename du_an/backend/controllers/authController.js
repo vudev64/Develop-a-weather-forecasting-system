@@ -63,9 +63,7 @@ export const googleAuthCallback = async (req, res) => {
   }
 };
 
-// ==========================================
 // 2. VERIFY GOOGLE TOKEN (CLIENT-SIDE)
-// ==========================================
 export const verifyGoogleToken = async (req, res) => {
   try {
     const { credential } = req.body;
