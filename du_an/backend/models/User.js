@@ -75,7 +75,7 @@ const UserSchema = new mongoose.Schema(
     forgotPasswordExpiresAt: Date,
   },
   {
-    timestamps: true, // Tự động tạo createdAt, updatedAt
+    timestamps: true, 
   }
 );
 

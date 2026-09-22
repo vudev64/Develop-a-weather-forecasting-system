@@ -33,15 +33,19 @@ const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
 // OTP TRANSPORTER & HELPERS
 const getOtpTransporter = () => {
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const smtpSecure = String(process.env.SMTP_SECURE || smtpPort === 465).toLowerCase() === 'true';
+  const smtpPassword = String(process.env.EMAIL_PASS || '').replace(/\s+/g, '');
+
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // Dùng SSL với Port 465
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: smtpPort,
+    secure: smtpSecure,
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // Mật khẩu ứng dụng 16 ký tự từ Google
+      pass: smtpPassword,
     },
-    family: 4, // BẮT BUỘC: Ép dùng IPv4 để tránh lỗi ENETUNREACH trên Render
+    family: 4,
     connectionTimeout: 20000,
     greetingTimeout: 20000,
     socketTimeout: 20000,
@@ -239,8 +243,13 @@ export const requestOtp = async (req, res) => {
         },
       });
     } catch (err) {
-      console.error('Lỗi gửi OTP:', err.message);
-      return buildError(res, 500, 'Gửi email thất bại: ' + err.message);
+      console.error('Lỗi gửi OTP:', {
+        code: err.code,
+        responseCode: err.responseCode,
+        command: err.command,
+        message: err.message,
+      });
+      return buildError(res, 500, 'Gửi email thất bại. Vui lòng kiểm tra cấu hình email trên server.');
     }
   } catch (error) {
     console.error('Lỗi request OTP:', error.message);
