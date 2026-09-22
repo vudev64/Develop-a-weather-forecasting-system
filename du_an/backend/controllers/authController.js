@@ -2,9 +2,7 @@ import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 
-// ==========================================
 // RESPONSE HELPERS
-// ==========================================
 export const buildAuthResponse = (res, { status = 200, message, user, token, extra = {} }) => {
   return res.status(status).json({
     success: true,
@@ -23,9 +21,7 @@ export const buildAuthError = (res, status, message, extra = {}) => {
   });
 };
 
-// ==========================================
 // 1. GOOGLE AUTH CALLBACK
-// ==========================================
 export const googleAuthCallback = async (req, res) => {
   try {
     const user = req.user;
@@ -175,6 +171,5 @@ export const logout = async (req, res) => {
   }
 };
 
-// ⚠️ LƯU Ý: OTP ĐÃ ĐƯỢC CHUYỂN SANG userController.js
+// OTP ĐÃ ĐƯỢC CHUYỂN SANG userController.js
 // Các hàm requestOtp, verifyOtp, resetPassword hiện nằm ở userController.js
-// Không duplicate code ở đây để tránh nhầm lẫn.

@@ -31,21 +31,20 @@ const normalizePhone = (phone) => String(phone || '').trim();
 const normalizeCity = (city) => String(city || '').trim();
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
-// OTP TRANSPORTER & HELPERS
+// OTP TRANSPORTER & HELPERS (ĐÃ CẬP NHẬT CẤU HÌNH AN TOÀN CHO RENDER)
 const getOtpTransporter = () => {
-  const smtpPort = Number(process.env.SMTP_PORT || 587);
-  const smtpSecure = String(process.env.SMTP_SECURE || smtpPort === 465).toLowerCase() === 'true';
+  // Lấy App Password và loại bỏ toàn bộ khoảng trắng
   const smtpPassword = String(process.env.EMAIL_PASS || '').replace(/\s+/g, '');
 
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: smtpPort,
-    secure: smtpSecure,
+    port: 465, // 🔴 Cố định Port 465 SSL để tránh lỗi chặn kết nối
+    secure: true, // 🔴 Bắt buộc true đối với port 465
     auth: {
       user: process.env.EMAIL_USER,
       pass: smtpPassword,
     },
-    family: 4,
+    family: 4, // 🔴 CỰC KỲ QUAN TRỌNG: Bắt buộc dùng IPv4 để khắc phục lỗi ENETUNREACH trên Render
     connectionTimeout: 20000,
     greetingTimeout: 20000,
     socketTimeout: 20000,
@@ -73,7 +72,7 @@ const buildOtpMessage = (otp, recipient) => ({
   `,
 });
 
-// Gửi mail trực tiếp qua Gmail SMTP (cho phép gửi đến mọi email người dùng)
+// Gửi mail trực tiếp qua Gmail SMTP
 const sendOtpEmail = async (otp, recipient) => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error('Chưa cấu hình EMAIL_USER hoặc EMAIL_PASS trong Environment Variables');
@@ -198,12 +197,12 @@ export const requestOtp = async (req, res) => {
       return buildError(res, 400, 'Vui lòng cung cấp số điện thoại hoặc email');
     }
 
-    // Tìm user theo Email (nếu có) hoặc theo SĐT
-    let query = [];
-    if (normalizedEmail) query.push({ email: normalizedEmail });
-    if (normalizedPhone) query.push({ phone: normalizedPhone });
+    // Xây dựng điều kiện query an toàn
+    const queryConditions = [];
+    if (normalizedEmail) queryConditions.push({ email: normalizedEmail });
+    if (normalizedPhone) queryConditions.push({ phone: normalizedPhone });
 
-    const user = await User.findOne({ $or: query }).select(
+    const user = await User.findOne({ $or: queryConditions }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
     );
 
@@ -211,7 +210,6 @@ export const requestOtp = async (req, res) => {
       return buildError(res, 404, 'Không tìm thấy tài khoản với thông tin này');
     }
 
-    // Xác định email sẽ nhận OTP (Ưu tiên email nhập vào, nếu không có thì lấy email đã lưu của user)
     const targetEmail = normalizedEmail || user.email;
 
     if (!targetEmail) {
@@ -223,7 +221,6 @@ export const requestOtp = async (req, res) => {
     const otpHash = hashOtp(otp);
     const otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
-    // Lưu OTP vào User tìm thấy
     user.passwordResetOtpHash = otpHash;
     user.passwordResetOtpExpiresAt = otpExpiresAt;
     user.passwordResetOtpVerifiedAt = null;
@@ -243,7 +240,7 @@ export const requestOtp = async (req, res) => {
         },
       });
     } catch (err) {
-      console.error('Lỗi gửi OTP:', {
+      console.error('❌ Lỗi gửi OTP chi tiết:', {
         code: err.code,
         responseCode: err.responseCode,
         command: err.command,
@@ -252,7 +249,7 @@ export const requestOtp = async (req, res) => {
       return buildError(res, 500, 'Gửi email thất bại. Vui lòng kiểm tra cấu hình email trên server.');
     }
   } catch (error) {
-    console.error('Lỗi request OTP:', error.message);
+    console.error('❌ Lỗi request OTP:', error.message);
     return buildError(res, 500, 'Không thể gửi OTP: ' + error.message);
   }
 };
@@ -421,7 +418,7 @@ export const saveSearchHistory = async (req, res) => {
       });
     }
 
-    console.error(' Lỗi lưu lịch sử:', error.message);
+    console.error('❌ Lỗi lưu lịch sử:', error.message);
     return buildError(res, 500, 'Lỗi server');
   }
 };
@@ -441,7 +438,7 @@ export const getFavorites = async (req, res) => {
       data: user.favorites || [],
     });
   } catch (error) {
-    console.error(' Lỗi lấy danh sách yêu thích:', error.message);
+    console.error('❌ Lỗi lấy danh sách yêu thích:', error.message);
     return buildError(res, 500, 'Lỗi server khi lấy danh sách yêu thích');
   }
 };
@@ -484,7 +481,7 @@ export const addFavorite = async (req, res) => {
       data: user.favorites,
     });
   } catch (error) {
-    console.error(' Lỗi thêm địa điểm yêu thích:', error.message);
+    console.error('❌ Lỗi thêm địa điểm yêu thích:', error.message);
     return buildError(res, 500, 'Lỗi server khi thêm địa điểm yêu thích');
   }
 };
@@ -521,7 +518,7 @@ export const removeFavorite = async (req, res) => {
       data: user.favorites,
     });
   } catch (error) {
-    console.error(' Lỗi xóa địa điểm yêu thích:', error.message);
+    console.error('❌ Lỗi xóa địa điểm yêu thích:', error.message);
     return buildError(res, 500, 'Lỗi server khi xóa địa điểm yêu thích');
   }
 };
