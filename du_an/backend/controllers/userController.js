@@ -124,7 +124,7 @@ export const register = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Lỗi đăng ký:', error.message);
+    console.error('Lỗi đăng ký:', error.message);
     return buildError(res, 500, 'Lỗi server');
   }
 };
@@ -171,7 +171,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Lỗi đăng nhập:', error.message);
+    console.error('Lỗi đăng nhập:', error.message);
     return buildError(res, 500, 'Lỗi server');
   }
 };
@@ -231,7 +231,7 @@ export const requestOtp = async (req, res) => {
         },
       });
     } catch (err) {
-      console.error('❌ Lỗi gửi OTP chi tiết:', {
+      console.error('Lỗi gửi OTP chi tiết:', {
         code: err.code,
         responseCode: err.responseCode,
         command: err.command,
@@ -240,7 +240,7 @@ export const requestOtp = async (req, res) => {
       return buildError(res, 500, 'Gửi email thất bại. Vui lòng kiểm tra cấu hình email trên server.');
     }
   } catch (error) {
-    console.error('❌ Lỗi request OTP:', error.message);
+    console.error('Lỗi request OTP:', error.message);
     return buildError(res, 500, 'Không thể gửi OTP: ' + error.message);
   }
 };
@@ -253,34 +253,49 @@ export const verifyOtp = async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
     const sanitizedOtp = String(otp || '').trim();
 
-    // Cho phép xác thực qua phone HOẶC email, miễn là có OTP 6 chữ số
+    console.log('🔍 Đang xác thực OTP cho:', { normalizedPhone, normalizedEmail, sanitizedOtp });
+
     if ((!normalizedPhone && !normalizedEmail) || !/^\d{6}$/.test(sanitizedOtp)) {
       return buildError(res, 400, 'Vui lòng cung cấp thông tin tài khoản và OTP 6 chữ số hợp lệ');
     }
 
     const queryConditions = [];
     if (normalizedEmail) queryConditions.push({ email: normalizedEmail });
-    if (normalizedPhone) queryConditions.push({ phone: normalizedPhone });
+    if (normalizedPhone) {
+      queryConditions.push({ phone: normalizedPhone });
+      // Thêm điều kiện tìm kiếm không phân biệt khoảng trắng hoặc dạng có/không số 0 đầu nếu cần
+      queryConditions.push({ phone: normalizedPhone.replace(/^0/, '+84') });
+    }
 
     const user = await User.findOne({ $or: queryConditions }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
     );
 
-    if (!user || !user.passwordResetOtpHash || !user.passwordResetOtpExpiresAt) {
+    if (!user) {
+      console.log('Không tìm thấy user trong DB với số:', normalizedPhone);
+      return buildError(res, 400, 'Số điện thoại này chưa yêu cầu cấp mã OTP');
+    }
+
+    if (!user.passwordResetOtpHash || !user.passwordResetOtpExpiresAt) {
+      console.log('User không có thông tin OTP hash trong DB');
       return buildError(res, 400, 'OTP không hợp lệ hoặc chưa được yêu cầu');
     }
 
     if (isOtpExpired(user.passwordResetOtpExpiresAt)) {
+      console.log('OTP đã hết hạn');
       return buildError(res, 400, 'OTP đã hết hạn');
     }
 
-    if (user.passwordResetOtpHash !== hashOtp(sanitizedOtp)) {
+    const hashedInputOtp = hashOtp(sanitizedOtp);
+    if (user.passwordResetOtpHash !== hashedInputOtp) {
+      console.log('Mã OTP không khớp. DB hash:', user.passwordResetOtpHash, '| Input hash:', hashedInputOtp);
       return buildError(res, 400, 'OTP không chính xác');
     }
 
     user.passwordResetOtpVerifiedAt = new Date();
     await user.save();
 
+    console.log('Xác thực OTP thành công cho user:', user.phone);
     return buildSuccess(res, {
       message: 'OTP hợp lệ',
       data: {
@@ -290,7 +305,7 @@ export const verifyOtp = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Lỗi verify OTP:', error.message);
+    console.error('Lỗi verify OTP:', error.message);
     return buildError(res, 500, 'Không thể xác thực OTP');
   }
 };
