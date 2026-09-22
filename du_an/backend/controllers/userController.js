@@ -214,57 +214,60 @@ export const requestOtp = async (req, res) => {
     const normalizedPhone = normalizePhone(phone);
     const normalizedEmail = normalizeEmail(email);
 
-    if (!isValidPhone(normalizedPhone) || !normalizedEmail) {
-      return buildError(res, 400, 'Vui lòng nhập phone hợp lệ và email hợp lệ');
+    if (!normalizedPhone && !normalizedEmail) {
+      return buildError(res, 400, 'Vui lòng cung cấp số điện thoại hoặc email');
     }
 
-    const user = await User.findOne({ phone: normalizedPhone }).select(
+    // Tìm user theo Email (nếu có) hoặc theo SĐT
+    let query = [];
+    if (normalizedEmail) query.push({ email: normalizedEmail });
+    if (normalizedPhone) query.push({ phone: normalizedPhone });
+
+    const user = await User.findOne({ $or: query }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
     );
 
     if (!user) {
-      return buildError(res, 404, 'Không tìm thấy tài khoản với số điện thoại này');
+      return buildError(res, 404, 'Không tìm thấy tài khoản với thông tin này');
     }
 
-    // Xử lý logic gán/kiểm tra email chống đụng Unique Key
-    if (!user.email) {
-      const emailOwner = await User.findOne({ email: normalizedEmail });
-      if (emailOwner && emailOwner._id.toString() !== user._id.toString()) {
-        return buildError(res, 400, 'Email này đã được đăng ký bởi tài khoản khác');
-      }
-      user.email = normalizedEmail;
-    } else if (user.email.toLowerCase() !== normalizedEmail) {
-      return buildError(res, 400, 'Email không khớp với tài khoản');
+    // Xác định email sẽ nhận OTP (Ưu tiên email nhập vào, nếu không có thì lấy email đã lưu của user)
+    const targetEmail = normalizedEmail || user.email;
+
+    if (!targetEmail) {
+      return buildError(res, 400, 'Tài khoản này chưa được liên kết email để nhận OTP');
     }
 
+    // Tạo mã OTP
     const otp = generateOtp();
     const otpHash = hashOtp(otp);
     const otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
+    // Lưu OTP vào User tìm thấy (Không đụng chạm hay chỉnh sửa field user.email)
     user.passwordResetOtpHash = otpHash;
     user.passwordResetOtpExpiresAt = otpExpiresAt;
     user.passwordResetOtpVerifiedAt = null;
-    user.passwordResetOtpTargetEmail = normalizedEmail;
+    user.passwordResetOtpTargetEmail = targetEmail;
 
-    // Lưu lại user (Lúc này không bao giờ bị dính lỗi E11000 nữa)
     await user.save();
 
+    // Gửi Email OTP
     try {
-      await sendOtpEmail(otp, normalizedEmail);
+      await sendOtpEmail(otp, targetEmail);
       return buildSuccess(res, {
         message: 'OTP đã được gửi qua email',
         data: {
-          phone: normalizedPhone,
-          email: normalizedEmail,
+          phone: user.phone,
+          email: targetEmail,
           expiresInMinutes: OTP_TTL_MINUTES,
         },
       });
     } catch (err) {
-      console.error('❌ Lỗi gửi OTP:', err.message);
+      console.error('Lỗi gửi OTP:', err.message);
       return buildError(res, 500, 'Gửi email thất bại: ' + err.message);
     }
   } catch (error) {
-    console.error('❌ Lỗi request OTP:', error.message);
+    console.error('Lỗi request OTP:', error.message);
     return buildError(res, 500, 'Không thể gửi OTP: ' + error.message);
   }
 };
