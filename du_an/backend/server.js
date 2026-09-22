@@ -18,16 +18,12 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.set('trust proxy', 1);
-const rawPort = process.env.PORT || process.env.BACKEND_PORT;
 
-if (!rawPort) {
-  throw new Error('Missing PORT or BACKEND_PORT in backend/.env');
-}
-
-const PORT = Number(rawPort);
+// ⚡ LẤY PORT ĐỘNG CHO CLOUD PLATFORM (RENDER/HEROKU/VERCEL)
+const PORT = Number(process.env.PORT || process.env.BACKEND_PORT || 5000);
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// 1. CHUẨN HÓA CORS ORIGINS - FIX LỖI CORS
+// 1. CHUẨN HÓA CORS ORIGINS
 const parseOrigins = () => {
   const envOrigins = [process.env.CORS_ORIGINS, process.env.FRONTEND_URL]
     .filter(Boolean)
@@ -35,7 +31,7 @@ const parseOrigins = () => {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  // 👇 THÊM LOCALHOST TỰ ĐỘNG KHI DEVELOPMENT
+  // Thêm localhost tự động khi Development
   if (NODE_ENV !== 'production') {
     const localOrigins = [
       'http://localhost:5173',
@@ -49,10 +45,9 @@ const parseOrigins = () => {
     console.log('🔧 Development mode: Added localhost origins');
   }
 
-  // 👇 THÊM URL DEPLOY MẶC ĐỊNH (ĐỀ PHÒNG QUÊN SET ENV)
+  // Báo cảnh báo nếu Production chưa truyền CORS origin
   if (NODE_ENV === 'production' && envOrigins.length === 0) {
-    console.warn('⚠️ No CORS origins specified in production, adding default');
-    envOrigins.push('https://develop-a-weather-forecasting-syste.vercel.app');
+    console.warn('⚠️ Warning: No CORS origins specified in production!');
   }
 
   return [...new Set(envOrigins)];
@@ -64,6 +59,7 @@ console.log('✅ Allowed Origins:', allowedOrigins);
 // 2. MIDDLEWARE CORS BẢO MẬT
 app.use(cors({
   origin: (origin, callback) => {
+    // Cho phép request server-to-server, Postman hoặc không có origin
     if (!origin) {
       return callback(null, true);
     }
@@ -125,7 +121,7 @@ const start = async () => {
     });
   });
 
-  // 👇 FIX LỖI SERVE STATIC FILES - ENOENT
+  // SERVE STATIC FILES (Nếu gom chung FE + BE vào 1 server)
   if (NODE_ENV === 'production') {
     const frontendDist = path.join(__dirname, '../frontend/dist');
     
@@ -173,10 +169,10 @@ const start = async () => {
 
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(`❌ Cổng ${PORT} đã bị chiếm.`);
+      console.error(`Cổng ${PORT} đã bị chiếm.`);
       process.exit(1);
     } else {
-      console.error('❌ Server error:', err.message);
+      console.error('Server error:', err.message);
       process.exit(1);
     }
   });

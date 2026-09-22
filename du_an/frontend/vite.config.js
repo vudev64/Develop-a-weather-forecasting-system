@@ -4,13 +4,8 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const rawPort = env.VITE_PORT || env.FRONTEND_PORT
-
-  if (!rawPort) {
-    throw new Error('Missing VITE_PORT or FRONTEND_PORT in frontend/.env')
-  }
-
-  const frontendPort = Number(rawPort)
+  // Tự động dùng fallback port 5173 nếu không khai báo VITE_PORT hay FRONTEND_PORT
+  const frontendPort = Number(env.VITE_PORT || env.FRONTEND_PORT || 5173)
 
   return {
     plugins: [
@@ -24,6 +19,6 @@ export default defineConfig(({ mode }) => {
       port: frontendPort,
       strictPort: true,
       open: true,
-    }
+    },
   }
 })

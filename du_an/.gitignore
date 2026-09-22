@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Environment variables (BẮT BUỘC ĐỂ KHÔNG BỊ LỘ SECRET)
+.env
+.env.*
+!.env.example

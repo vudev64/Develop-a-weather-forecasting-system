@@ -5,7 +5,8 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 
-const GOOGLE_CLIENT_ID = '487852314824-lvjqoj1sv6sv0vrfn832h5svqu7m9fdr.apps.googleusercontent.com'
+// Lấy Google Client ID từ biến môi trường VITE_
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '487852314824-lvjqoj1sv6sv0vrfn832h5svqu7m9fdr.apps.googleusercontent.com'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
