@@ -201,6 +201,16 @@ export const requestOtp = async (req, res) => {
       return buildError(res, 404, 'Không tìm thấy tài khoản với thông tin này');
     }
 
+    if (normalizedPhone && user.phone && normalizePhone(user.phone) !== normalizedPhone) {
+      return buildError(res, 400, 'Số điện thoại không khớp với tài khoản email này');
+    }
+
+    // Google accounts may not have a phone initially. Save the verified phone
+    // supplied during the recovery flow so later steps use one identity.
+    if (normalizedPhone && !user.phone) {
+      user.phone = normalizedPhone;
+    }
+
     const targetEmail = normalizedEmail || user.email;
 
     if (!targetEmail) {
