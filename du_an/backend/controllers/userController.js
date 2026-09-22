@@ -248,15 +248,21 @@ export const requestOtp = async (req, res) => {
 // 4. XÁC THỰC OTP
 export const verifyOtp = async (req, res) => {
   try {
-    const { phone, otp } = req.body;
+    const { phone, email, otp } = req.body;
     const normalizedPhone = normalizePhone(phone);
+    const normalizedEmail = normalizeEmail(email);
     const sanitizedOtp = String(otp || '').trim();
 
-    if (!isValidPhone(normalizedPhone) || !/^\d{6}$/.test(sanitizedOtp)) {
-      return buildError(res, 400, 'Vui lòng nhập phone hợp lệ và OTP 6 chữ số');
+    if ((!normalizedPhone && !normalizedEmail) || !/^\d{6}$/.test(sanitizedOtp)) {
+      return buildError(res, 400, 'Vui lòng cung cấp số điện thoại hoặc email hợp lệ và OTP 6 chữ số');
     }
 
-    const user = await User.findOne({ phone: normalizedPhone }).select(
+    // Xây dựng điều kiện tìm kiếm linh hoạt giống hệt lúc requestOtp
+    const queryConditions = [];
+    if (normalizedEmail) queryConditions.push({ email: normalizedEmail });
+    if (normalizedPhone) queryConditions.push({ phone: normalizedPhone });
+
+    const user = await User.findOne({ $or: queryConditions }).select(
       '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +passwordResetOtpTargetEmail'
     );
 
@@ -278,17 +284,16 @@ export const verifyOtp = async (req, res) => {
     return buildSuccess(res, {
       message: 'OTP hợp lệ',
       data: {
-        phone: normalizedPhone,
+        phone: user.phone,
         email: user.passwordResetOtpTargetEmail || user.email,
         verifiedAt: user.passwordResetOtpVerifiedAt,
       },
     });
   } catch (error) {
-    console.error('❌ Lỗi verify OTP:', error.message);
+    console.error('Lỗi verify OTP:', error.message);
     return buildError(res, 500, 'Không thể xác thực OTP');
   }
 };
-
 // 5. ĐẶT LẠI MẬT KHẨU
 export const resetPassword = async (req, res) => {
   try {
