@@ -21,13 +21,12 @@
     "google-auth-library": "^10.7.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.23.0",
-    "resend": "^6.26.0",
     "winston": "^3.19.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
   "engines": {
-  "node": ">=20.19.0"
+    "node": ">=20.19.0"
   }
 }

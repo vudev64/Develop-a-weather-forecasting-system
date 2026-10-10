@@ -2,8 +2,8 @@ import { useState } from 'react'
 
 function RegisterForm({
   scope = 'modal',
-  phone,
-  setPhone,
+  email,
+  setEmail,
   username,
   setUsername,
   password,
@@ -36,15 +36,15 @@ function RegisterForm({
 
       <form onSubmit={onSubmit} autoComplete="off">
         <div className={inputGroupClass}>
-          <label>Số điện thoại</label>
+          <label>Email</label>
           <input
-            type="tel"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
             required
             disabled={loading}
-            placeholder="09xxxxxxxx"
-            autoComplete="tel"
+            placeholder="example@gmail.com"
+            autoComplete="email"
           />
         </div>
 

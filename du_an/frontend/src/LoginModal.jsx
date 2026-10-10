@@ -7,7 +7,7 @@ import ForgotPasswordForm from './components/auth/ForgotPasswordForm.jsx'
 
 function LoginModal({ isOpen, onClose, onLogin }) {
   const [mode, setMode] = useState('login') // 'login', 'register', 'forgot'
-  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -20,7 +20,7 @@ function LoginModal({ isOpen, onClose, onLogin }) {
   const resetForm = () => {
     setError('')
     setSuccessMessage('')
-    setPhone('')
+    setEmail('')
     setUsername('')
     setPassword('')
     setConfirmPassword('')
@@ -53,15 +53,14 @@ function LoginModal({ isOpen, onClose, onLogin }) {
       }
 
       if (mode === 'login') {
-        const data = await authService.login(phone, password)
+        const data = await authService.login(email, password)
         localStorage.setItem('token', data.token || '')
-        localStorage.setItem('phone', data.data?.phone || phone)
-        localStorage.setItem('username', data.data?.username || data.data?.phone || phone)
-        onLogin(data.data?.phone || phone)
+        localStorage.setItem('username', data.data?.username || data.data?.email || email)
+        onLogin(data.data?.email || email)
         onClose()
         return
       } else if (mode === 'register') {
-        await authService.register(phone, password, username)
+        await authService.register(email, password, username)
         setSuccessMessage('Đăng ký thành công. Vui lòng đăng nhập lại.')
         setTimeout(() => {
           resetForm()
@@ -84,9 +83,8 @@ function LoginModal({ isOpen, onClose, onLogin }) {
 
       if (data.success && data.token) {
         localStorage.setItem('token', data.token)
-        localStorage.setItem('phone', data.data?.phone || data.data?.username || '')
-        localStorage.setItem('username', data.data?.username || data.data?.phone || '')
-        onLogin(data.data?.phone || data.data?.username)
+        localStorage.setItem('username', data.data?.username || data.data?.email || '')
+        onLogin(data.data?.email || data.data?.username)
         onClose()
       } else {
         setError(data.error || 'Đăng nhập Google thất bại')
@@ -112,8 +110,8 @@ function LoginModal({ isOpen, onClose, onLogin }) {
         {mode === 'login' && (
           <LoginForm
             scope="modal"
-            phone={phone}
-            setPhone={setPhone}
+            email={email}
+            setEmail={setEmail}
             password={password}
             setPassword={setPassword}
             loading={loading}
@@ -137,8 +135,8 @@ function LoginModal({ isOpen, onClose, onLogin }) {
         {mode === 'register' && (
           <RegisterForm
             scope="modal"
-            phone={phone}
-            setPhone={setPhone}
+            email={email}
+            setEmail={setEmail}
             username={username}
             setUsername={setUsername}
             password={password}

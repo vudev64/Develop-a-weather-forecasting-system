@@ -19,7 +19,6 @@ function AuthProvider({ children }) {
   const clearSession = useCallback(() => {
     localStorage.removeItem('token')
     localStorage.removeItem('username')
-    localStorage.removeItem('phone')
     setToken(null)
     setUser(null)
   }, [])
@@ -177,7 +176,7 @@ function AppRoutes() {
           path="/dashboard"
           element={(
             <ProtectedRoute isAuthenticated={isAuthenticated} loading={loading}>
-              <Dashboard username={user?.fullName || user?.username || user?.phone || 'Người dùng'} onLogout={handleLogout} />
+              <Dashboard username={user?.fullName || user?.username || user?.email || 'Người dùng'} onLogout={handleLogout} />
             </ProtectedRoute>
           )}
         />

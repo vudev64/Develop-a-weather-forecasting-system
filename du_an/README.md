@@ -57,28 +57,19 @@ weather-app/
 npm run install-all
 ```
 
-### Bước 2: Cấu hình file `.env`
+### Bước 2: Cấu hình các file `.env` hiện có
 
-Copy file mẫu rồi chỉnh lại port theo nhu cầu dev:
-
-```bash
-copy backend\.env.example backend\.env
-copy frontend\.env.example frontend\.env
-```
-
-Tạo hoặc sửa file `backend/.env` với nội dung:
+Trong `backend/.env`, giữ các biến Google OAuth hiện có cho Google Login. Gmail API dùng bộ client riêng và refresh token tương ứng:
 ```env
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/weather_app
-WEATHER_API_KEY=your_openweathermap_api_key
-WEATHER_API_URL=https://api.openweathermap.org/data/2.5/weather
-FRONTEND_URL=http://localhost:5173
-JWT_SECRET=your_jwt_secret_key
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASS=your_email_app_password
+GMAIL_CLIENT_ID=your_gmail_oauth_client_id
+GMAIL_CLIENT_SECRET=your_gmail_oauth_client_secret
+GMAIL_REFRESH_TOKEN=your_gmail_oauth_refresh_token
+GMAIL_SENDER_EMAIL=your_gmail_address@gmail.com
 ```
 
-Tạo hoặc sửa file `frontend/.env` với nội dung:
+Tạo OAuth refresh token được cấp scope gửi email Gmail API (`https://www.googleapis.com/auth/gmail.send`) và dùng đúng tài khoản Gmail làm `GMAIL_SENDER_EMAIL`. Chỉ cấu hình refresh token ở backend/Render; không đưa secret hoặc refresh token vào frontend. OTP được backend tạo, chỉ lưu hash trong MongoDB, và hết hạn sau 10 phút.
+
+`frontend/.env` giữ các biến frontend hiện có, bao gồm:
 ```env
 VITE_PORT=5173
 VITE_API_BASE_URL=http://localhost:5000/api
@@ -126,9 +117,10 @@ npm run dev:backend
 - `GET /api/weather/cities/all` - Danh sách thành phố đã tìm
 
 ### Users
-- `POST /api/users/login` - Đăng nhập
+- `POST /api/users/register` - Đăng ký bằng email và mật khẩu
+- `POST /api/users/login` - Đăng nhập bằng email và mật khẩu
 - `POST /api/users/search-history` - Lưu lịch sử tìm kiếm
-- `POST /api/users/request-otp` - Yêu cầu gửi OTP quên mật khẩu
+- `POST /api/users/request-otp` - Yêu cầu gửi OTP quên mật khẩu tới email tài khoản
 - `POST /api/users/verify-otp` - Xác thực mã OTP
 - `POST /api/users/reset-password` - Đặt lại mật khẩu mới
 - `POST /api/users/search-history` - Lưu lịch sử tìm kiếm
@@ -139,6 +131,8 @@ npm run dev:backend
 ## 🎯 Tính năng
 
 - **Auth:** Đăng ký/Đăng nhập, Google OAuth, Email OTP, JWT Session không văng khi rớt mạng.
+- **Tài khoản:** Email là định danh đăng nhập và địa chỉ nhận OTP; không cần số điện thoại hoặc SMS.
+- **Khôi phục mật khẩu:** Backend tạo OTP, gửi qua Gmail API, xác minh mã và cập nhật mật khẩu MongoDB.
 - **Thời tiết:** Tìm kiếm chỉ số real-time, tích hợp bản đồ & cache MongoDB tối ưu speed.
 - **Đồng bộ:** Lưu lịch sử tìm kiếm và danh sách địa điểm yêu thích theo tài khoản.
 - **Bảo mật:** Rate Limiting chống spam API & Winston Logger ghi log JSON chuẩn Production.

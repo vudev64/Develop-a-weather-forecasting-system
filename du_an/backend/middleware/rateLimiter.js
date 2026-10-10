@@ -12,7 +12,7 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// 2. Giới hạn nghiêm ngặt cho gửi OTP (Chống spam Gmail & tốn tiền SMS/mail)
+// 2. Giới hạn nghiêm ngặt cho gửi OTP qua email
 export const otpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 giờ
   max: 5, // Tối đa 5 lần gửi OTP trong 1 giờ/IP

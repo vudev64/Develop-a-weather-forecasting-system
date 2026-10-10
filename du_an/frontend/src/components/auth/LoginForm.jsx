@@ -3,8 +3,8 @@ import { GoogleLogin } from '@react-oauth/google'
 
 function LoginForm({
   scope = 'modal',
-  phone,
-  setPhone,
+  email,
+  setEmail,
   password,
   setPassword,
   loading = false,
@@ -34,15 +34,15 @@ function LoginForm({
 
       <form onSubmit={onSubmit} autoComplete="off">
         <div className={inputGroupClass}>
-          <label>Số điện thoại</label>
+          <label>Email</label>
           <input
-            type="tel"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
             required
             disabled={loading}
-            placeholder="09xxxxxxxx"
-            autoComplete="tel"
+            placeholder="example@gmail.com"
+            autoComplete="email"
           />
         </div>
 
@@ -98,7 +98,7 @@ function LoginForm({
         <div className={scope === 'modal' ? 'modal-switch-mode' : 'switch-mode'}>
           <p>
             Chưa có tài khoản?{' '}
-            <span onClick={onSwitchToRegister}>
+            <span onClick={onSwitchToRegister} style={{ cursor: 'pointer' }}>
               Đăng ký ngay
             </span>
           </p>
@@ -112,13 +112,17 @@ function LoginForm({
           </div>
 
           <div className={scope === 'modal' ? 'modal-oauth-buttons' : 'login-footer'}>
-            <GoogleLogin
-              onSuccess={onGoogleSuccess}
-              onError={onGoogleError}
-              text="signin_with"
-              width={scope === 'modal' ? '100%' : undefined}
-              theme={scope === 'modal' ? 'filled_black' : 'outline'}
-            />
+            {/* Thẻ div bọc giúp bao quát nút Google, ngăn chặn tình trạng lệch layout */}
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+              <GoogleLogin
+                onSuccess={onGoogleSuccess}
+                onError={onGoogleError}
+                text="signin_with"
+                // Sửa thành chuỗi số pixel hợp lệ (Google yêu cầu từ "200" đến "400")
+                width={scope === 'modal' ? '350' : '400'}
+                theme={scope === 'modal' ? 'filled_black' : 'outline'}
+              />
+            </div>
           </div>
         </>
       )}

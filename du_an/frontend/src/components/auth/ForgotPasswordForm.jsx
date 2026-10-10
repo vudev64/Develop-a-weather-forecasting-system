@@ -6,7 +6,6 @@ function ForgotPasswordForm({
   onBackToLogin,
 }) {
   const [step, setStep] = useState(1) // 1: Request OTP, 2: Verify OTP, 3: Reset Password
-  const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -27,7 +26,7 @@ function ForgotPasswordForm({
     setLoading(true)
     setError('')
     try {
-      await authService.requestOtp(phone, email)
+      await authService.requestOtp(email)
       setSuccess('Mã OTP đã được gửi đến email của bạn.')
       setStep(2)
     } catch (err) {
@@ -42,7 +41,7 @@ function ForgotPasswordForm({
     setLoading(true)
     setError('')
     try {
-      await authService.verifyOtp(phone, email, otp)
+      await authService.verifyOtp(email, otp)
       setSuccess('Xác thực mã OTP thành công. Vui lòng nhập mật khẩu mới.')
       setStep(3)
     } catch (err) {
@@ -61,7 +60,7 @@ function ForgotPasswordForm({
     setLoading(true)
     setError('')
     try {
-      await authService.resetPassword(phone, email, newPassword, otp)
+      await authService.resetPassword(email, newPassword, otp)
       setSuccess('Đổi mật khẩu thành công! Bạn có thể đăng nhập ngay bây giờ.')
       setTimeout(() => {
         onBackToLogin()
@@ -81,18 +80,7 @@ function ForgotPasswordForm({
       {step === 1 && (
         <form onSubmit={handleRequestOtp} autoComplete="off">
           <div className={inputGroupClass}>
-            <label>Số điện thoại</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-              disabled={loading}
-              placeholder="09xxxxxxxx"
-            />
-          </div>
-          <div className={inputGroupClass}>
-            <label>Email (để nhận OTP)</label>
+            <label>Email tài khoản</label>
             <input
               type="email"
               value={email}
@@ -100,6 +88,7 @@ function ForgotPasswordForm({
               required
               disabled={loading}
               placeholder="example@gmail.com"
+              autoComplete="email"
             />
           </div>
           <button type="submit" className={submitButtonClass} disabled={loading}>

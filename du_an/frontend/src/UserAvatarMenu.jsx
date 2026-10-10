@@ -20,8 +20,7 @@ function UserAvatarMenu({ username, userInfo, onLogout, onSelectCity }) {
   const [menuError, setMenuError] = useState('')
   const menuRef = useRef(null)
 
-  const displayName = userInfo?.username || userInfo?.phone || username || 'Khách'
-  const displayPhone = userInfo?.phone || ''
+  const displayName = userInfo?.username || userInfo?.email || username || 'Khách'
   const displayEmail = userInfo?.email || ''
   const avatarLetter = displayName ? displayName.charAt(0).toUpperCase() : '?'
 
@@ -173,12 +172,6 @@ function UserAvatarMenu({ username, userInfo, onLogout, onSelectCity }) {
 
             {activeTab === 'profile' && (
               <div className="info-tab">
-                {displayPhone && (
-                  <div className="info-row">
-                    <span className="info-label">Số điện thoại:</span>
-                    <span className="info-value">{displayPhone}</span>
-                  </div>
-                )}
                 {displayEmail && (
                   <div className="info-row">
                     <span className="info-label">Email:</span>

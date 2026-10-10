@@ -1,24 +1,17 @@
-import { API_BASE_URL, ENDPOINTS } from '../config/api.js';
+
+import { ENDPOINTS } from '../config/api.js';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
-
-const normalizePayload = (input, password, username) => {
-  if (input && typeof input === 'object') {
-    return input;
-  }
-
-  return {
-    phone: input,
-    password,
-    username,
+  const headers = {
+    'Content-Type': 'application/json',
   };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return headers;
 };
 
 const readResponseJson = async (response) => {
@@ -37,104 +30,111 @@ const readResponseJson = async (response) => {
 
 const handleResponse = async (response) => {
   const data = await readResponseJson(response);
+
   if (!response.ok) {
-    const error = new Error(data.message || data.error || `HTTP ${response.status}: ${response.statusText}`);
+    const message =
+      data.message ||
+      data.error ||
+      `HTTP ${response.status}: ${response.statusText || 'Request failed'}`;
+
+    const error = new Error(message);
     error.status = response.status;
     error.data = data;
+
     throw error;
   }
+
   return data;
 };
 
+const postJson = async (url, body, options = {}) => {
+  let response;
+
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.auth ? getAuthHeaders() : {}),
+      },
+      body: JSON.stringify(body),
+      signal: options.signal,
+    });
+  } catch (cause) {
+    const error = new Error(
+      'Không thể kết nối đến server. Vui lòng kiểm tra backend và địa chỉ API.'
+    );
+    error.cause = cause;
+    error.code = 'NETWORK_ERROR';
+    throw error;
+  }
+
+  return handleResponse(response);
+};
+
 export const authService = {
-  login: async (phone, password) => {
-    const payload = normalizePayload(phone, password);
-    const response = await fetch(ENDPOINTS.USERS.LOGIN, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: payload.phone, password: payload.password })
-    });
-    return handleResponse(response);
-  },
+  login: async (email, password) =>
+    postJson(ENDPOINTS.USERS.LOGIN, { email, password }),
 
-  register: async (phone, password, username = '') => {
-    const payload = normalizePayload(phone, password, username);
-    const response = await fetch(ENDPOINTS.USERS.REGISTER, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone: payload.phone,
-        username: payload.username,
-        password: payload.password,
-      })
-    });
-    return handleResponse(response);
-  },
+  register: async (email, password, username = '') =>
+    postJson(ENDPOINTS.USERS.REGISTER, {
+      email,
+      username,
+      password,
+    }),
 
-  verifyGoogleToken: async (credential) => {
-    const response = await fetch(ENDPOINTS.AUTH.GOOGLE_VERIFY, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credential })
-    });
-    return handleResponse(response);
-  },
+  verifyGoogleToken: async (credential) =>
+    postJson(ENDPOINTS.AUTH.GOOGLE_VERIFY, { credential }),
 
   getMe: async () => {
-    const response = await fetch(ENDPOINTS.AUTH.ME, {
-      headers: getAuthHeaders()
-    });
+    let response;
+
+    try {
+      response = await fetch(ENDPOINTS.AUTH.ME, {
+        headers: getAuthHeaders(),
+      });
+    } catch (cause) {
+      const error = new Error(
+        'Không thể kết nối đến server khi lấy thông tin tài khoản.'
+      );
+      error.cause = cause;
+      error.code = 'NETWORK_ERROR';
+      throw error;
+    }
+
     return handleResponse(response);
   },
 
   logout: async () => {
     try {
-      const response = await fetch(ENDPOINTS.AUTH.LOGOUT, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-
-      if (response.ok) {
-        return handleResponse(response);
-      }
-
-      return handleResponse(response);
+      return await postJson(
+        ENDPOINTS.AUTH.LOGOUT,
+        {},
+        { auth: true }
+      );
     } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('username');
-      localStorage.removeItem('phone');
     }
   },
 
-  resetPassword: async (phone, email, newPassword, otp) => {
-    const response = await fetch(ENDPOINTS.USERS.RESET_PASSWORD, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone,
-        email,
-        newPassword,
-        otp
-      })
-    });
-    return handleResponse(response);
-  },
+  resetPassword: async (email, newPassword, otp) =>
+    postJson(ENDPOINTS.USERS.RESET_PASSWORD, {
+      email,
+      newPassword,
+      otp,
+    }),
 
-  requestOtp: async (phone, email) => {
-    const response = await fetch(ENDPOINTS.USERS.REQUEST_OTP, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, email })
-    });
-    return handleResponse(response);
-  },
+  requestOtp: async (email, options = {}) =>
+    postJson(
+      ENDPOINTS.USERS.REQUEST_OTP,
+      { email },
+      { signal: options.signal }
+    ),
 
-  verifyOtp: async (phone, email, otp) => {
-    const response = await fetch(ENDPOINTS.USERS.VERIFY_OTP, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, email, otp })
-    });
-    return handleResponse(response);
-  }
+  verifyOtp: async (email, otp) =>
+    postJson(ENDPOINTS.USERS.VERIFY_OTP, {
+      email,
+      otp,
+    }),
 };

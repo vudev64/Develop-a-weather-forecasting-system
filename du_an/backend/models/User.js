@@ -33,14 +33,11 @@ const UserSchema = new mongoose.Schema(
     },
     email: {
       type: String,
+      required: true,
+      unique: true,
+      sparse: true,
       trim: true,
       lowercase: true,
-      sparse: true,
-    },
-    phone: {
-      type: String,
-      sparse: true,
-      trim: true,
     },
     googleId: {
       type: String,
@@ -67,7 +64,6 @@ const UserSchema = new mongoose.Schema(
     passwordResetOtpHash: String,
     passwordResetOtpExpiresAt: Date,
     passwordResetOtpVerifiedAt: Date,
-    passwordResetOtpTargetEmail: String,
     forgotPasswordToken: {
       type: String,
       sparse: true,

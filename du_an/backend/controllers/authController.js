@@ -34,7 +34,6 @@ export const googleAuthCallback = async (req, res) => {
     const token = jwt.sign(
       {
         id: user._id,
-        phone: user.phone || user.username,
         email: user.email,
       },
       process.env.JWT_SECRET,
@@ -45,7 +44,6 @@ export const googleAuthCallback = async (req, res) => {
       token,
       user: {
         id: user._id,
-        phone: user.phone || user.username,
         username: user.username,
         email: user.email,
         fullName: user.fullName,
@@ -76,12 +74,16 @@ export const verifyGoogleToken = async (req, res) => {
     });
     const payload = ticket.getPayload();
     const { email, name, picture, sub } = payload;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) {
+      return buildAuthError(res, 401, 'Tài khoản Google không cung cấp email');
+    }
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       user = new User({
-        username: email.split('@')[0],
-        email: email,
+        username: normalizedEmail.split('@')[0],
+        email: normalizedEmail,
         password: 'google_oauth_placeholder',
         googleId: sub,
         picture: picture,
@@ -98,7 +100,6 @@ export const verifyGoogleToken = async (req, res) => {
     const jwtToken = jwt.sign(
       {
         id: user._id,
-        phone: user.phone || user.username,
         email: user.email,
       },
       process.env.JWT_SECRET,
@@ -110,7 +111,6 @@ export const verifyGoogleToken = async (req, res) => {
       token: jwtToken,
       user: {
         id: user._id,
-        phone: user.phone || user.username,
         username: user.username,
         email: user.email,
         fullName: user.fullName,
@@ -142,7 +142,6 @@ export const getCurrentUser = async (req, res) => {
       message: 'Lấy thông tin user thành công',
       user: {
         id: user._id,
-        phone: user.phone,
         username: user.username,
         email: user.email,
         fullName: user.fullName,
