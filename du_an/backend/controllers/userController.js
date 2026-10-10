@@ -52,13 +52,13 @@ const buildOtpMessage = (otp) => ({
 
 // Gửi OTP qua Resend API, không phụ thuộc SMTP outbound của hosting.
 const sendOtpEmail = async (otp, recipient) => {
-  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
     throw new Error('Chưa cấu hình RESEND_API_KEY hoặc RESEND_FROM_EMAIL trên server');
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { data, error } = await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL,
+    from: process.env.EMAIL_FROM,
     to: [recipient],
     ...buildOtpMessage(otp),
   });
