@@ -1,26 +1,37 @@
 import { useEffect, useState } from 'react'
 import './Dashboard.css'
 import Map from './Map.jsx'
-import UserAvatarMenu from './UserAvatarMenu.jsx' 
-import WeatherLayerControl from './components/WeatherLayerControl.jsx'
+import UserAvatarMenu from './UserAvatarMenu.jsx'
+import OverviewTab from './components/dashboard/OverviewTab.jsx'
+import ForecastTab from './components/dashboard/ForecastTab.jsx'
+import MapTab from './components/dashboard/MapTab.jsx'
+import DetailsTab from './components/dashboard/DetailsTab.jsx'
+import WeatherSafetyGuide from './components/dashboard/WeatherSafetyGuide.jsx'
 import { authService } from './services/authService.js'
 import { mapWeatherResponse as normalizeWeatherResponse, weatherService } from './services/weatherService.js'
+import { getWeatherDescription } from './utils/weatherUtils.js'
+
+const DASHBOARD_TABS = [
+  { id: 'overview', label: 'Tổng quan', icon: '◉', description: 'Thời tiết hiện tại tại địa điểm đang xem.' },
+  { id: 'forecast', label: 'Dự báo', icon: '◷', description: 'Dự báo theo giờ và tổng quan từng ngày.' },
+  { id: 'map', label: 'Bản đồ', icon: '⌖', description: 'Bản đồ địa điểm và các lớp thời tiết.' },
+  { id: 'details', label: 'Thông tin chi tiết', icon: '☼', description: 'Các chỉ số và thông tin vị trí hiện tại.' },
+]
 
 function Dashboard({ username, onLogout }) {
+  const [activeTab, setActiveTab] = useState('overview')
+  const [isSafetyGuideOpen, setIsSafetyGuideOpen] = useState(false)
   const [city, setCity] = useState('')
   const [weather, setWeather] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [userInfo, setUserInfo] = useState(null)
-
-  // Quản lý state cho các lớp thời tiết (Layer)
   const [layerConfig, setLayerConfig] = useState({
     temperature: false,
     wind: false,
     rainfall: false,
     humidity: false,
-    opacity: 0.7,
-    windStyle: 'arrows'
+    opacity: 0.7
   })
 
   useEffect(() => {
@@ -35,36 +46,6 @@ function Dashboard({ username, onLogout }) {
 
     fetchUserInfo()
   }, [])
-
-  const getWeatherDescription = (code) => {
-    const codes = {
-      0: 'Trời quang',
-      1: 'Hầu như trời quang',
-      2: 'Có mây',
-      3: 'Mây che phủ',
-      45: 'Sương mù',
-      48: 'Sương mù rime',
-      51: 'Mưa nhẹ',
-      53: 'Mưa vừa',
-      55: 'Mưa nặng',
-      61: 'Mưa',
-      63: 'Mưa vừa',
-      65: 'Mưa nặng',
-      71: 'Tuyết nhẹ',
-      73: 'Tuyết vừa',
-      75: 'Tuyết nặng',
-      80: 'Mưa rào nhẹ',
-      81: 'Mưa rào vừa',
-      82: 'Mưa rào nặng',
-      85: 'Tuyết rào nhẹ',
-      86: 'Tuyết rào nặng',
-      95: 'Giông',
-      96: 'Giông với mưa đá nhẹ',
-      99: 'Giông với mưa đá nặng'
-    }
-
-    return codes[code] || 'Không xác định'
-  }
 
   const buildWeatherData = (data) => {
     const normalized = normalizeWeatherResponse(data)
@@ -85,6 +66,7 @@ function Dashboard({ username, onLogout }) {
     setLoading(true)
     setError('')
     setWeather(null)
+    setIsSafetyGuideOpen(false)
 
     try {
       const data = await weatherService.getWeatherByCity(searchTarget)
@@ -92,7 +74,6 @@ function Dashboard({ username, onLogout }) {
 
       setWeather(weatherData)
       await weatherService.saveSearchHistory(weatherData.city || searchTarget)
-
     } catch (err) {
       setError(err.message || 'Không thể lấy dữ liệu thời tiết')
     } finally {
@@ -100,117 +81,173 @@ function Dashboard({ username, onLogout }) {
     }
   }
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      searchWeather()
-    }
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    void searchWeather()
   }
 
-  // Chọn nhanh thành phố từ Lịch sử / Yêu thích trong Avatar Menu
   const handleSelectCityFromMenu = (selectedCity) => {
     setCity(selectedCity)
-    searchWeather(selectedCity)
+    void searchWeather(selectedCity)
   }
+
+  const handleTabKeyDown = (event) => {
+    const currentIndex = DASHBOARD_TABS.findIndex((tab) => tab.id === activeTab)
+    let nextIndex = currentIndex
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % DASHBOARD_TABS.length
+    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      nextIndex = (currentIndex - 1 + DASHBOARD_TABS.length) % DASHBOARD_TABS.length
+    } else {
+      return
+    }
+
+    event.preventDefault()
+    const nextTab = DASHBOARD_TABS[nextIndex]
+    setActiveTab(nextTab.id)
+    setIsSafetyGuideOpen(false)
+    event.currentTarget.querySelector(`[data-tab="${nextTab.id}"]`)?.focus()
+  }
+
+  const selectedTab = DASHBOARD_TABS.find((tab) => tab.id === activeTab) || DASHBOARD_TABS[0]
+  const pageTitle = isSafetyGuideOpen ? 'Hướng dẫn an toàn thời tiết' : selectedTab.label
+  const pageDescription = isSafetyGuideOpen
+    ? 'Tìm hiểu ảnh hưởng và cách phòng tránh các hiện tượng thời tiết.'
+    : selectedTab.description
 
   return (
     <div className="dashboard">
-      {/* 🟢 CHỈ HIỂN THỊ MENU CONTROL KHI ĐÃ CÓ DỮ LIỆU THỜI TIẾT (TÌM KIẾM THÀNH CÔNG) */}
-      {weather && (
-        <WeatherLayerControl
-          layerConfig={layerConfig}
-          onLayerChange={setLayerConfig}
-        />
-      )}
-
-      {/* Header tối giản: Tiêu đề bên trái, Avatar Menu bên phải */}
       <header className="dashboard-header">
-        <h2>🗺️ Bản Đồ Thời Tiết</h2>
-        <UserAvatarMenu
-          username={username}
-          userInfo={userInfo}
-          onLogout={onLogout}
-          onSelectCity={handleSelectCityFromMenu}
-        />
+        <a className="dashboard-brand" href="#overview" aria-label="WeatherWeb dashboard">
+          <span className="brand-mark" aria-hidden="true">W</span>
+          <span>
+            <strong>WeatherWeb</strong>
+            <small>Personal weather</small>
+          </span>
+        </a>
+
+        <form className="dashboard-search" onSubmit={handleSubmit} role="search">
+          <span className="search-icon" aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            aria-label="Tìm thành phố hoặc địa điểm"
+            placeholder="Tìm thành phố hoặc địa điểm..."
+            value={city}
+            onChange={(event) => setCity(event.target.value)}
+          />
+          <button type="submit" disabled={loading}>
+            {loading ? 'Đang tìm...' : 'Tìm kiếm'}
+          </button>
+        </form>
+
+        <div className="dashboard-account" id="saved-places">
+          <span className="account-label">Tài khoản</span>
+          <UserAvatarMenu
+            username={username}
+            userInfo={userInfo}
+            onLogout={onLogout}
+            onSelectCity={handleSelectCityFromMenu}
+          />
+        </div>
       </header>
 
-      <div className="container">
-        <div className="header">
-          <h1>Web Dự Báo Thời Tiết</h1>
-          
-          <div className="search-box">
-            <input 
-              type="text" 
-              placeholder="Nhập tên thành phố hoặc địa điểm..." 
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              onKeyPress={handleKeyPress}
-            />
-            <button onClick={() => searchWeather()} disabled={loading}>
-              {loading ? 'Đang tìm...' : 'Tìm kiếm'}
-            </button>
+      <div className="dashboard-shell">
+        <aside className="dashboard-sidebar" aria-label="Điều hướng dashboard">
+          <div className="sidebar-section" role="tablist" aria-label="WeatherWeb">
+            <p className="sidebar-label">Không gian</p>
+            {DASHBOARD_TABS.map((tab) => (
+              <button
+                className={`sidebar-link ${activeTab === tab.id ? 'active' : ''}`}
+                id={`tab-${tab.id}`}
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls="dashboard-tab-panel"
+                data-tab={tab.id}
+                tabIndex={activeTab === tab.id ? 0 : -1}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  setIsSafetyGuideOpen(false)
+                }}
+                onKeyDown={handleTabKeyDown}
+              >
+                <span aria-hidden="true">{tab.icon}</span>{tab.label}
+              </button>
+            ))}
           </div>
-        </div>
 
-        <div className="content">
-          <h2>Xem thông tin thời tiết chi tiết</h2>
-          
-          <div className="weather-result">
-            {error && <p className="error-message">{error}</p>}
-            
-            {!weather && !error && !loading && (
-              <p>Nhập tên thành phố hoặc địa điểm để xem dự báo thời tiết chi tiết</p>
-            )}
+          <div className="sidebar-footer">Dữ liệu thời tiết từ Open-Meteo</div>
+        </aside>
 
-            {weather && (
-              <div className="weather-info">
-                <h3>{weather.city}{weather.country && `, ${weather.country}`}</h3>
-                <div className="weather-details">
-                  <div className="temperature">
-                    <span className="temp">{weather.temperature}°C</span>
-                  </div>
-                  <p className="description">{weather.description}</p>
-                  <div className="info-grid">
-                    <div className="info-item">
-                      <span className="label">Cảm giác như:</span>
-                      <span className="value">{weather.feelsLike}°C</span>
-                    </div>
-                    <div className="info-item">
-                      <span className="label">Độ ẩm:</span>
-                      <span className="value">{weather.humidity}%</span>
-                    </div>
-                    <div className="info-item">
-                      <span className="label">Tốc độ gió:</span>
-                      <span className="value">{weather.windSpeed.toFixed(1)} m/s</span>
-                    </div>
-                    <div className="info-item">
-                      <span className="label">Gió giật:</span>
-                      <span className="value">{weather.windGust.toFixed(1)} m/s</span>
-                    </div>
-                    <div className="info-item">
-                      <span className="label">Hướng gió:</span>
-                      <span className="value">{weather.windDirection}°</span>
-                    </div>
-                    <div className="info-item">
-                      <span className="label">Lượng mưa:</span>
-                      <span className="value">{weather.precipitation} mm</span>
-                    </div>
-                  </div>
-                </div>
+        <main className="dashboard-main">
+          <div className="dashboard-page-heading">
+            <div>
+              <p className="eyebrow">WEATHERWEB / {pageTitle.toLocaleUpperCase('vi')}</p>
+              <h1>{pageTitle}</h1>
+              <p className="page-subtitle">{pageDescription}</p>
+            </div>
+          </div>
 
-                {/* Truyền cấu hình layer xuống cho Map */}
-                <Map weather={weather} layerConfig={layerConfig} />
+          {error && (
+            <div className="dashboard-state error-state" role="alert">
+              <span aria-hidden="true">!</span>
+              <div>
+                <strong>Không thể tải thông tin thời tiết</strong>
+                <p>{error}</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="info-box">
-            <h3>Thông tin về thời tiết</h3>
-            <p>Tìm hiểu về các loại thời tiết và cách phòng tránh</p>
-            <a href="/weather-info.html" target="_blank" rel="noopener noreferrer">
-              Xem hướng dẫn chi tiết
-            </a>
-          </div>
-        </div>
+          {loading && (
+            <div className="dashboard-state loading-state" role="status" aria-live="polite">
+              <span className="loading-spinner" aria-hidden="true" />
+              <div>
+                <strong>Đang cập nhật thời tiết</strong>
+                <p>Đang tìm dữ liệu cho địa điểm bạn chọn...</p>
+              </div>
+            </div>
+          )}
+
+          {!weather && !loading && !error && activeTab !== 'details' && (
+            <section className="dashboard-state empty-state">
+              <span className="empty-state-icon" aria-hidden="true">☁</span>
+              <h2>Chưa có địa điểm được chọn</h2>
+              <p>Tìm thành phố phía trên để xem {selectedTab.label.toLocaleLowerCase('vi')}.</p>
+            </section>
+          )}
+
+          {(weather || activeTab === 'details') && (
+            <div
+              className="dashboard-tab-content"
+              id="dashboard-tab-panel"
+              role="tabpanel"
+              aria-labelledby={`tab-${activeTab}`}
+              tabIndex={0}
+            >
+              {activeTab === 'overview' && <OverviewTab weather={weather} />}
+              {activeTab === 'forecast' && <ForecastTab weather={weather} />}
+              {activeTab === 'map' && (
+                <MapTab
+                  weather={weather}
+                  layerConfig={layerConfig}
+                  onLayerChange={setLayerConfig}
+                />
+              )}
+              {activeTab === 'details' && (
+                isSafetyGuideOpen ? (
+                  <WeatherSafetyGuide onBack={() => setIsSafetyGuideOpen(false)} />
+                ) : (
+                  <DetailsTab
+                    weather={weather}
+                    onOpenSafetyGuide={() => setIsSafetyGuideOpen(true)}
+                  />
+                )
+              )}
+            </div>
+          )}
+        </main>
       </div>
     </div>
   )

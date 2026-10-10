@@ -16,10 +16,10 @@ function PublicHome({ onGoToLogin, isAuthenticated }) {
 
       {/* Tìm hiểu thêm section */}
       <div className="public-info-section">
-        <h3>Muốn xem chi tiết hơn?</h3>
-        <p>Đăng nhập để lưu vị trí yêu thích, theo dõi dự báo dài hạn và nhận thông báo cảnh báo thời tiết</p>
+        <h3>Quản lý địa điểm của bạn</h3>
+        <p>Đăng nhập để lưu lịch sử tìm kiếm và quản lý các địa điểm yêu thích.</p>
         <button onClick={onGoToLogin} className="cta-btn">
-          Đăng Nhập Ngay
+          Đăng nhập
         </button>
       </div>
     </div>

@@ -5,6 +5,12 @@ import { weatherService } from './services/weatherService.js'
 const HISTORY_STORAGE_KEY = 'weather-search-history'
 const FAVORITES_STORAGE_KEY = 'weather-favorites'
 
+const normalizeFavorite = (favorite) => ({
+  ...favorite,
+  city: favorite.city || favorite.cityName || '',
+  addedAt: favorite.addedAt || null,
+})
+
 function UserAvatarMenu({ username, userInfo, onLogout, onSelectCity }) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
@@ -54,15 +60,13 @@ function UserAvatarMenu({ username, userInfo, onLogout, onSelectCity }) {
 
       try {
         const response = await weatherService.getFavorites()
-        const apiFavorites = Array.isArray(response?.data) ? response.data : response?.data?.items || []
-
-        if (apiFavorites.length > 0) {
-          persistFavorites(apiFavorites)
-        } else {
-          persistFavorites(loadLocalFavorites())
-        }
+        const apiFavorites = Array.isArray(response?.data)
+          ? response.data
+          : response?.data?.items || []
+        persistFavorites(apiFavorites.map(normalizeFavorite))
       } catch {
-        persistFavorites(loadLocalFavorites())
+        persistFavorites(loadLocalFavorites().map(normalizeFavorite))
+        setMenuError('Không thể đồng bộ yêu thích. Đang hiển thị dữ liệu trên thiết bị này.')
       }
     } catch (error) {
       setMenuError(error.message || 'Không thể tải dữ liệu menu')
@@ -85,7 +89,7 @@ function UserAvatarMenu({ username, userInfo, onLogout, onSelectCity }) {
     try {
       await weatherService.addFavorite(normalizedCity)
     } catch {
-      // Fallback local storage
+      setMenuError('Đã lưu trên thiết bị này, nhưng không thể đồng bộ yêu thích với tài khoản.')
     }
   }
 
@@ -97,12 +101,20 @@ function UserAvatarMenu({ username, userInfo, onLogout, onSelectCity }) {
     try {
       await weatherService.removeFavorite(normalizedCity)
     } catch {
-      // Fallback local storage
+      setMenuError('Đã xóa trên thiết bị này, nhưng không thể đồng bộ thay đổi với tài khoản.')
     }
   }
 
   const isFavorite = (city) => {
     return favorites.some((item) => item.city?.toLowerCase() === city?.toLowerCase())
+  }
+
+  const toggleFavorite = (city) => {
+    if (isFavorite(city)) {
+      void removeFavorite(city)
+    } else {
+      void addFavorite(city)
+    }
   }
 
   const handleCityClick = (city) => {
@@ -192,13 +204,19 @@ function UserAvatarMenu({ username, userInfo, onLogout, onSelectCity }) {
                   <ul className="history-list">
                     {normalizedHistory.map((item, index) => (
                       <li key={`${item.city}-${index}`} className="history-item">
-                        <div onClick={() => handleCityClick(item.city)} style={{ cursor: 'pointer', flex: 1 }}>
+                        <button type="button" className="history-city-button" onClick={() => handleCityClick(item.city)}>
                           <div className="history-city">{item.city}</div>
                           <div className="history-date">
                             {item.searchedAt ? new Date(item.searchedAt).toLocaleString('vi-VN') : ''}
                           </div>
-                        </div>
-                        <button type="button" className="history-action-btn" onClick={() => addFavorite(item.city)}>
+                        </button>
+                        <button
+                          type="button"
+                          className="history-action-btn"
+                          onClick={() => toggleFavorite(item.city)}
+                          aria-label={isFavorite(item.city) ? `Bỏ yêu thích ${item.city}` : `Thêm yêu thích ${item.city}`}
+                          title={isFavorite(item.city) ? 'Bỏ khỏi yêu thích' : 'Thêm vào yêu thích'}
+                        >
                           {isFavorite(item.city) ? '★' : '☆'}
                         </button>
                       </li>
@@ -218,13 +236,13 @@ function UserAvatarMenu({ username, userInfo, onLogout, onSelectCity }) {
                   <ul className="history-list">
                     {favorites.map((item, index) => (
                       <li key={`${item.city}-${index}`} className="history-item">
-                        <div onClick={() => handleCityClick(item.city)} style={{ cursor: 'pointer', flex: 1 }}>
+                        <button type="button" className="history-city-button" onClick={() => handleCityClick(item.city)}>
                           <div className="history-city">{item.city}</div>
                           <div className="history-date">
                             {item.addedAt ? new Date(item.addedAt).toLocaleDateString('vi-VN') : 'Đã lưu'}
                           </div>
-                        </div>
-                        <button type="button" className="history-action-btn danger" onClick={() => removeFavorite(item.city)}>
+                        </button>
+                        <button type="button" className="history-action-btn danger" onClick={() => void removeFavorite(item.city)}>
                           Xóa
                         </button>
                       </li>

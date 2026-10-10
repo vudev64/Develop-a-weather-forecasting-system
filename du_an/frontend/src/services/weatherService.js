@@ -59,7 +59,7 @@ const normalizeWeatherPayload = (data) => {
     windDirection: current.windDirection ?? 0,
     windGust: current.windGust ?? 0,
     precipitation: current.precipitation ?? 0,
-    weatherCode: current.weatherCode ?? 0,
+    weatherCode: current.weatherCode ?? current.weather_code ?? null,
   }
 }
 
@@ -123,7 +123,7 @@ export const weatherService = {
     const response = await fetch(`${API_BASE_URL}/users/favorites`, {
       method: 'POST',
       headers: buildAuthHeaders(),
-      body: JSON.stringify({ city })
+      body: JSON.stringify({ cityName: city })
     })
     return handleResponse(response)
   },

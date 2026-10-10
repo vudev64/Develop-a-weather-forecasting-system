@@ -87,12 +87,6 @@ function PublicMap({ onRequireLogin, isAuthenticated }) {
     }
   }
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSearch(e)
-    }
-  }
-
   return (
     <div className="public-map-wrapper">
       {/* Search Box */}
@@ -103,8 +97,8 @@ function PublicMap({ onRequireLogin, isAuthenticated }) {
             placeholder="Nhập tên thành phố..."
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            onKeyPress={handleKeyPress}
             className="public-search-input"
+            aria-label="Tìm thành phố"
           />
           <button type="submit" disabled={loading} className="public-search-btn">
             {loading ? '⏳ Đang tìm...' : '🔍 Tìm'}
@@ -113,11 +107,11 @@ function PublicMap({ onRequireLogin, isAuthenticated }) {
       </div>
 
       {/* Error Message */}
-      {error && <div className="public-error-message">{error}</div>}
+      {error && <div className="public-error-message" role="alert">{error}</div>}
 
       {/* Weather Data or Loading */}
       {loading && !weather && (
-        <div className="loading-container">
+        <div className="loading-container" role="status" aria-live="polite">
           <p>Đang tải dữ liệu thời tiết...</p>
         </div>
       )}

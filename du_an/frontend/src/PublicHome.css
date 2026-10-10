@@ -1,223 +1,238 @@
 .public-home {
   display: flex;
-  flex-direction: column;
   min-height: 100vh;
+  flex-direction: column;
+  color: #172b4d;
+  background: #f4f7fb;
 }
 
 .public-header {
-  background-color: #3b82f6;
-  color: white;
-  padding: 20px 40px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  position: relative;
   z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 17px clamp(18px, 5vw, 64px);
+  background: #fff;
+  border-bottom: 1px solid #e7edf5;
 }
 
 .public-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0;
-  font-size: 1.8rem;
-  min-width: 0;
+  color: #172b4d;
+  font-size: clamp(17px, 2.4vw, 22px);
+  letter-spacing: -0.035em;
 }
 
-.login-btn {
-  padding: 10px 25px;
-  background-color: white;
-  color: #3b82f6;
-  border: none;
-  border-radius: 5px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.3s;
+.login-btn,
+.cta-btn {
+  min-height: 42px;
+  padding: 0 19px;
+  color: #fff;
+  background: #3478f6;
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.18s ease, transform 0.18s ease;
 }
 
-.login-btn:hover {
-  background-color: #f1f5f9;
+.login-btn:hover,
+.cta-btn:hover {
+  background: #2265df;
+  transform: translateY(-1px);
 }
 
-/* Public Map Styles */
 .public-map-wrapper {
   position: relative;
   flex: 1;
-  min-height: 500px;
-  background-color: #f3f4f6;
+  min-height: 540px;
+  padding: 18px clamp(13px, 4vw, 50px);
+  background: #f4f7fb;
+}
+
+.public-map-wrapper .map-wrapper {
+  max-width: 1450px;
+  margin: 70px auto 0;
 }
 
 .public-search-bar {
   position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 200;
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  top: 23px;
+  left: clamp(13px, 4vw, 50px);
+  z-index: 300;
+  width: min(500px, calc(100% - 26px));
+  padding: 7px;
+  background: #fff;
+  border: 1px solid #e7edf5;
+  border-radius: 15px;
+  box-shadow: 0 12px 30px rgba(27, 48, 81, 0.12);
 }
 
 .public-search-bar form {
   display: flex;
-  gap: 10px;
+  gap: 7px;
 }
 
 .public-search-input {
-  padding: 10px 15px;
-  border: 1px solid #d1d5db;
-  border-radius: 5px;
-  font-size: 1rem;
-  width: 200px;
-  transition: border-color 0.3s;
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  color: #263b5c;
+  background: #f6f8fc;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 12px;
 }
 
 .public-search-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #a8c4fa;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(52, 120, 246, 0.1);
 }
 
 .public-search-btn {
-  padding: 10px 20px;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background-color 0.3s;
-}
-
-.public-search-btn:hover {
-  background-color: #2563eb;
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 16px;
+  color: #fff;
+  background: #3478f6;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .public-search-btn:disabled {
-  background-color: #9ca3af;
-  cursor: not-allowed;
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .public-error-message {
   position: absolute;
-  top: 80px;
-  left: 20px;
-  background-color: #fee2e2;
-  color: #991b1b;
-  padding: 15px;
-  border-radius: 5px;
-  border: 1px solid #fecaca;
-  z-index: 200;
-  max-width: 300px;
+  top: 82px;
+  left: clamp(13px, 4vw, 50px);
+  z-index: 300;
+  max-width: min(450px, calc(100% - 26px));
+  padding: 11px 14px;
+  color: #963d36;
+  background: #fff7f5;
+  border: 1px solid #f1d9d4;
+  border-radius: 11px;
+  box-shadow: 0 8px 20px rgba(27, 48, 81, 0.08);
+  font-size: 11px;
 }
 
 .loading-container {
+  display: grid;
+  min-height: 430px;
+  place-items: center;
+  color: #71819a;
+  font-size: 13px;
+}
+
+.public-info-section {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  color: #6b7280;
-  font-size: 1.1rem;
-}
-
-/* Info Section */
-.public-info-section {
-  background-color: #fef3c7;
-  padding: 40px 20px;
-  text-align: center;
+  gap: 20px;
+  padding: 25px clamp(16px, 5vw, 64px);
+  background: #fff;
+  border-top: 1px solid #e7edf5;
 }
 
 .public-info-section h3 {
-  color: #78350f;
-  font-size: 1.8rem;
-  margin-bottom: 15px;
+  margin: 0;
+  color: #233957;
+  font-size: 15px;
 }
 
 .public-info-section p {
-  color: #92400e;
-  font-size: 1rem;
-  margin-bottom: 25px;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 480px;
+  margin: 0;
+  color: #71819a;
+  font-size: 11px;
+  line-height: 1.6;
 }
 
 .cta-btn {
-  padding: 12px 40px;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  font-size: 1.1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.3s;
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 15px;
 }
 
-.cta-btn:hover {
-  background-color: #2563eb;
-}
-
-@media (max-width: 768px) {
+@media (max-width: 700px) {
   .public-header {
-    flex-direction: column;
-    gap: 15px;
-    padding: 15px;
+    gap: 12px;
+    padding: 13px 15px;
   }
 
   .public-header h1 {
-    font-size: 1.5rem;
-    text-align: center;
+    gap: 8px;
+    font-size: 16px;
   }
 
   .login-btn {
-    width: 100%;
-  }
-
-  .public-search-bar {
-    top: 10px;
-    left: 10px;
-    right: 10px;
-    width: auto;
-  }
-
-  .public-search-bar form {
-    flex-direction: column;
-  }
-
-  .public-search-input {
-    width: 100%;
-  }
-
-  .public-info-section h3 {
-    font-size: 1.4rem;
-  }
-
-  .cta-btn {
-    width: 90%;
-  }
-}
-
-@media (max-width: 480px) {
-  .public-header h1 {
-    font-size: 1.25rem;
-    line-height: 1.35;
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 10px;
+    white-space: nowrap;
   }
 
   .public-map-wrapper {
-    min-height: 420px;
+    min-height: 500px;
+    padding: 12px;
+  }
+
+  .public-map-wrapper .map-wrapper {
+    margin-top: 66px;
   }
 
   .public-search-bar {
-    padding: 10px;
+    top: 13px;
+    left: 12px;
+    width: calc(100% - 24px);
   }
 
-  .public-search-btn,
-  .public-search-input {
-    min-height: 44px;
+  .public-error-message {
+    top: 72px;
+    left: 12px;
   }
 
   .public-info-section {
-    padding: 30px 15px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px 14px;
+    padding: 20px 16px;
   }
 
   .public-info-section p {
-    font-size: 0.95rem;
+    flex: 1 1 100%;
+  }
+
+  .cta-btn {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .public-header h1 {
+    font-size: 14px;
+  }
+
+  .public-search-input {
+    padding: 0 8px;
+  }
+
+  .public-search-btn {
+    padding: 0 11px;
   }
 }

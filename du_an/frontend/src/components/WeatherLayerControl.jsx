@@ -2,9 +2,10 @@ import { useState } from 'react'
 import './WeatherLayerControl.css'
 
 function WeatherLayerControl({ onLayerChange, layerConfig = {} }) {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 821px)').matches
+  ))
   const [opacity, setOpacity] = useState(0.7)
-  const [windStyle, setWindStyle] = useState('arrows')
 
   const toggleLayer = (layerName) => {
     onLayerChange({
@@ -23,124 +24,55 @@ function WeatherLayerControl({ onLayerChange, layerConfig = {} }) {
     })
   }
 
-  const handleWindStyleChange = (style) => {
-    setWindStyle(style)
-    onLayerChange({
-      ...layerConfig,
-      windStyle: style
-    })
-  }
-
   const layers = [
-    { id: 'temperature', name: 'Temperature', icon: '🌡️', color: '#ff6b35' },
-    { id: 'wind', name: 'Wind', icon: '💨', color: '#4ecdc4' },
-    { id: 'rainfall', name: 'Rain, thunder', icon: '⛈️', color: '#45b7d1' },
-    { id: 'humidity', name: 'Humidity', icon: '💧', color: '#96ceb4' },
-    // Các layer từ "More layers"
-    { id: 'weather-radar', name: 'Weather radar', icon: '🌈' },
-    { id: 'satellite', name: 'Satellite', icon: '🛰️' },
-    { id: 'hurricane-tracker', name: 'Hurricane tracker', icon: '🌀' },
-    { id: 'wind-layer', name: 'Wind', icon: '💨' },
-    { id: 'wind-gusts', name: 'Wind gusts', icon: '🌪️' },
-    { id: 'wind-accumulation', name: 'Wind accumulation', icon: '💨' },
-    { id: 'pressure', name: 'Pressure', icon: '🔷' },
-    { id: 'temp-layer', name: 'Temperature', icon: '🌡️' },
-    { id: 'dew-point', name: 'Dew point', icon: '💧' },
-    { id: 'humidity-layer', name: 'Humidity', icon: '💧' },
-    { id: 'wet-bulb', name: 'Wet-bulb temperature', icon: '🌡️' },
-    { id: 'solar-power', name: 'Solar power', icon: '☀️' },
-    { id: 'uv-index', name: 'UV Index', icon: '☀️' },
-    { id: 'city-heatmaps', name: 'City heatmaps', icon: '🏙️' },
-    { id: 'rain-thunder', name: 'Rain, thunder', icon: '⛈️' },
-    { id: 'rain-accumulation', name: 'Rain accumulation', icon: '💧' },
-    { id: 'new-snow', name: 'New snow', icon: '❄️' },
-    { id: 'snow-depth', name: 'Snow depth', icon: '❄️' },
-    { id: 'precipitation-type', name: 'Precipitation type', icon: '💧' },
-    { id: 'thunderstorms', name: 'Thunderstorms', icon: '⛈️' }
+    { id: 'temperature', name: 'Nhiệt độ', icon: '🌡️' },
+    { id: 'wind', name: 'Gió', icon: '💨' },
+    { id: 'rainfall', name: 'Lượng mưa', icon: '⛈️' },
+    { id: 'humidity', name: 'Độ ẩm', icon: '💧' },
   ]
-
-  // Show only enabled layers or main layers
-  const displayedLayers = layers.filter(layer => 
-    ['temperature', 'wind', 'rainfall', 'humidity'].includes(layer.id) || layerConfig[layer.id]
-  )
 
   return (
     <div className={`weather-layer-control ${isOpen ? 'open' : 'closed'}`}>
-      {/* Header */}
       <div className="layer-header">
         <button
           className="menu-toggle-btn"
           onClick={() => setIsOpen(!isOpen)}
-          title="Toggle menu"
+          title={isOpen ? 'Ẩn lớp bản đồ' : 'Hiện lớp bản đồ'}
+          aria-expanded={isOpen}
         >
-          ☰
+          {isOpen ? '−' : '+'}
         </button>
-        <h3>Menu</h3>
+        <h3>Lớp bản đồ</h3>
       </div>
 
       {isOpen && (
         <div className="layer-menu">
-          {/* Layers List */}
           <div className="layers-list">
-            {displayedLayers.map((layer) => (
+            {layers.map((layer) => (
               <div
                 key={layer.id}
                 className={`layer-item ${layerConfig[layer.id] ? 'active' : ''}`}
               >
-                <div
+                <button
+                  type="button"
                   className="layer-content"
                   onClick={() => toggleLayer(layer.id)}
+                  aria-pressed={Boolean(layerConfig[layer.id])}
                 >
-                  <div className="layer-icon">
+                  <span className="layer-icon">
                     <span>{layer.icon}</span>
-                  </div>
+                  </span>
                   <div className="layer-info">
                     <span className="layer-name">{layer.name}</span>
                   </div>
-                </div>
-                <div className="layer-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={layerConfig[layer.id] || false}
-                    onChange={() => toggleLayer(layer.id)}
-                  />
-                </div>
+                  <span className="layer-switch" aria-hidden="true" />
+                </button>
               </div>
             ))}
           </div>
 
-          {/* Wind Style Options */}
-          {layerConfig.wind && (
-            <div className="wind-style-section">
-              <label className="section-title">Wind Style</label>
-              <div className="wind-style-options">
-                <label className="radio-option">
-                  <input
-                    type="radio"
-                    name="windStyle"
-                    value="arrows"
-                    checked={windStyle === 'arrows'}
-                    onChange={(e) => handleWindStyleChange(e.target.value)}
-                  />
-                  <span>Arrows</span>
-                </label>
-                <label className="radio-option">
-                  <input
-                    type="radio"
-                    name="windStyle"
-                    value="particles"
-                    checked={windStyle === 'particles'}
-                    onChange={(e) => handleWindStyleChange(e.target.value)}
-                  />
-                  <span>Particles</span>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Opacity Control */}
           <div className="opacity-section">
-            <label className="section-title">Opacity</label>
+            <label className="section-title">Độ trong suốt</label>
             <div className="opacity-control">
               <input
                 type="range"

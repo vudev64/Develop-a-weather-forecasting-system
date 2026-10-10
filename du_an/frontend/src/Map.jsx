@@ -4,10 +4,10 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './Map.css'
 import TemperatureLayer from './components/layers/TemperatureLayer'
-import WindLayer from './components/layers/WindLayer'
-import RainfallLayer from './components/layers/RainfallLayer'
+import WeatherAnimationOverlay from './components/layers/WeatherAnimationOverlay.jsx'
 import HumidityLayer from './components/layers/HumidityLayer'
 import { mapWeatherResponse as normalizeWeatherResponse, weatherService } from './services/weatherService.js'
+import WeatherForecast from './components/dashboard/WeatherForecast.jsx'
 
 // Fix marker icon issue in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl
@@ -66,10 +66,10 @@ function MapClickHandler({ onClickLocation, enabled = true }) {
 }
 
 // 🟢 Nhận weather và layerConfig truyền trực tiếp từ Dashboard.jsx
-function Map({ weather, layerConfig = {}, showWeatherDetails = true }) {
+function Map({ weather, layerConfig = {}, showWeatherDetails = true, showForecast = true }) {
   const [clickedLocation, setClickedLocation] = useState(null)
 
-  if (!weather || !weather.latitude || !weather.longitude) {
+  if (!weather || weather.latitude == null || weather.longitude == null) {
     return <div className="map-container">Không có dữ liệu vị trí</div>
   }
 
@@ -80,33 +80,24 @@ function Map({ weather, layerConfig = {}, showWeatherDetails = true }) {
     ? `${weather.city}, ${weather.country}`
     : weather.city
 
-  // Lấy dữ liệu dự báo 24h tiếp theo từ hourly data
-  const getNext24HourForecast = () => {
-    if (!weather?.hourly?.time) return [];
-    const forecast = [];
-    for (let i = 0; i < Math.min(24, weather.hourly.time.length); i++) {
-      forecast.push({
-        time: weather.hourly.time[i],
-        temp: weather.hourly.temperature_2m?.[i] || weather.temperature,
-        precipitation: weather.hourly.precipitation?.[i] || 0,
-        windSpeed: weather.hourly.wind_speed_10m?.[i] || weather.windSpeed || 0,
-        visibility: weather.hourly.visibility?.[i] || 0
-      });
-    }
-    return forecast;
-  }
-
-  const hourly24 = getNext24HourForecast();
-
-  const formatTime = (timeString) => {
-    const date = new Date(timeString);
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  }
-
   return (
-    <div className={`map-wrapper ${showWeatherDetails ? '' : 'public-map-expanded'}`}>
+    <div className={`map-wrapper ${showWeatherDetails ? '' : 'public-map-expanded'}`} id="weather-map">
       <div className="map-header">
-        <h3>🗺️ Bản đồ Thời Tiết: {locationLabel}</h3>
+        <div>
+          <p className="eyebrow">KHÁM PHÁ ĐỊA ĐIỂM</p>
+          <h3>Thời tiết trên bản đồ</h3>
+          <p className="map-location">{locationLabel}</p>
+          {showWeatherDetails && (
+            <p className="map-interaction-hint">
+              Nhấp vào bản đồ để xem thời tiết tại một vị trí khác
+            </p>
+          )}
+          {showWeatherDetails && (
+            <p className="map-simulation-note">
+              Hiệu ứng thời tiết mô phỏng theo dữ liệu tại vị trí đang chọn, không phải dữ liệu phủ toàn bản đồ.
+            </p>
+          )}
+        </div>
         {showWeatherDetails && (
           <div className="weather-legend">
             <div className="legend-item">
@@ -151,22 +142,13 @@ function Map({ weather, layerConfig = {}, showWeatherDetails = true }) {
           />
         )}
         
-        {layerConfig.wind && (
-          <WindLayer 
-            weather={weather} 
-            visible={true}
-            style={layerConfig.windStyle || 'arrows'}
-            opacity={layerConfig.opacity}
-          />
-        )}
-        
-        {layerConfig.rainfall && (
-          <RainfallLayer 
-            weather={weather} 
-            visible={true}
-            opacity={layerConfig.opacity}
-          />
-        )}
+        <WeatherAnimationOverlay
+          weather={weather}
+          location={position}
+          windEnabled={Boolean(layerConfig.wind)}
+          rainEnabled={Boolean(layerConfig.rainfall)}
+          opacity={layerConfig.opacity}
+        />
 
         {layerConfig.humidity && (
           <HumidityLayer 
@@ -300,22 +282,7 @@ function Map({ weather, layerConfig = {}, showWeatherDetails = true }) {
         )}
       </MapContainer>
 
-      {/* Dự báo từng giờ */}
-      {showWeatherDetails && hourly24.length > 0 && (
-        <div className="forecast-section">
-          <h4>📊 Dự báo 24 giờ tiếp theo</h4>
-          <div className="forecast-scroll">
-            {hourly24.slice(0, 24).map((item, idx) => (
-              <div key={idx} className="forecast-item">
-                <div className="forecast-time">{formatTime(item.time)}</div>
-                <div className="forecast-temp">{Math.round(item.temp)}°C</div>
-                <div className="forecast-wind">💨 {item.windSpeed.toFixed(1)} m/s</div>
-                <div className="forecast-rain">🌧️ {item.precipitation.toFixed(1)} mm</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {showWeatherDetails && showForecast && <WeatherForecast weather={weather} />}
     </div>
   )
 }
