@@ -53,7 +53,7 @@ const buildOtpMessage = (otp) => ({
 // Gửi OTP qua Resend API, không phụ thuộc SMTP outbound của hosting.
 const sendOtpEmail = async (otp, recipient) => {
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
-    throw new Error('Chưa cấu hình RESEND_API_KEY hoặc RESEND_FROM_EMAIL trên server');
+    throw new Error('Chưa cấu hình RESEND_API_KEY hoặc EMAIL_FROM trên server');
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
