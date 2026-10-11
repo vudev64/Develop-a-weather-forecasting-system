@@ -79,13 +79,6 @@ function ForgotPasswordForm({
                   placeholder="Nhập mật khẩu mới"
                   autoComplete="new-password"
                 />
-                <button
-                  type="button"
-                  className={togglePasswordClass}
-                  onClick={() => setShowPassword((current) => !current)}
-                >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
-                </button>
               </div>
             </div>
 
@@ -104,6 +97,13 @@ function ForgotPasswordForm({
                 />
               </div>
             </div>
+            <button
+              type="button"
+              className={togglePasswordClass}
+              onClick={() => setShowPassword((current) => !current)}
+            >
+              {showPassword ? 'Ẩn mật khẩu' : '👁 Hiện cả hai mật khẩu'}
+            </button>
 
             <p>Mật khẩu cần có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</p>
             <button type="submit" className={submitButtonClass} disabled={loading}>
