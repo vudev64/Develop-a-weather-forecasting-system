@@ -16,8 +16,7 @@ export const ENDPOINTS = {
     LOGIN: `${API_BASE_URL}/users/login`,
     REGISTER: `${API_BASE_URL}/users/register`,
     RESET_PASSWORD: `${API_BASE_URL}/users/reset-password`,
-    REQUEST_OTP: `${API_BASE_URL}/users/request-otp`,
-    VERIFY_OTP: `${API_BASE_URL}/users/verify-otp`,
+    REQUEST_PASSWORD_RESET: `${API_BASE_URL}/users/request-password-reset`,
     SEARCH_HISTORY: `${API_BASE_URL}/users/search-history`,
   },
   WEATHER: {

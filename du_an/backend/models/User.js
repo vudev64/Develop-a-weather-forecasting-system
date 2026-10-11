@@ -61,14 +61,14 @@ const UserSchema = new mongoose.Schema(
         searchedAt: { type: Date, required: true },
       },
     ],
-    passwordResetOtpHash: String,
-    passwordResetOtpExpiresAt: Date,
-    passwordResetOtpVerifiedAt: Date,
-    forgotPasswordToken: {
+    passwordResetTokenHash: {
       type: String,
-      sparse: true,
+      select: false,
     },
-    forgotPasswordExpiresAt: Date,
+    passwordResetExpiresAt: {
+      type: Date,
+      select: false,
+    },
   },
   {
     timestamps: true, 

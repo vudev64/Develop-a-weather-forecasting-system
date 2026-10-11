@@ -26,7 +26,7 @@ weather-app/
 
 - Tích hợp Google OAuth 2.0.
 
-- Khôi phục & Đặt lại mật khẩu qua Mã OTP gửi về Email.
+- Khôi phục & Đặt lại mật khẩu bằng link gửi về email.
 
 - Duy trì phiên làm việc thông minh với JWT Session (chống logout / văng app khi mất mạng).
 
@@ -67,7 +67,9 @@ GMAIL_REFRESH_TOKEN=your_gmail_oauth_refresh_token
 GMAIL_SENDER_EMAIL=your_gmail_address@gmail.com
 ```
 
-Tạo OAuth refresh token được cấp scope gửi email Gmail API (`https://www.googleapis.com/auth/gmail.send`) và dùng đúng tài khoản Gmail làm `GMAIL_SENDER_EMAIL`. Chỉ cấu hình refresh token ở backend/Render; không đưa secret hoặc refresh token vào frontend. OTP được backend tạo, chỉ lưu hash trong MongoDB, và hết hạn sau 10 phút.
+Tạo OAuth refresh token được cấp scope gửi email Gmail API (`https://www.googleapis.com/auth/gmail.send`) và dùng đúng tài khoản Gmail làm `GMAIL_SENDER_EMAIL`. Chỉ cấu hình refresh token ở backend/Render; không đưa secret hoặc refresh token vào frontend. Cấu hình `FRONTEND_URL` là origin giao diện người dùng (ví dụ `http://localhost:5173` khi chạy local). Khi người dùng yêu cầu đặt lại mật khẩu, backend gửi link chứa token ngẫu nhiên một lần; chỉ hash token được lưu trong MongoDB và link hết hạn sau 30 phút.
+
+Vercel cần deploy từ thư mục `frontend` để dùng `frontend/vercel.json`, file này rewrite `/reset-password` về SPA entry point. Trên Render, đặt `FRONTEND_URL` thành origin production chính xác của frontend Vercel (không thêm `/reset-password` hay đường dẫn khác).
 
 `frontend/.env` giữ các biến frontend hiện có, bao gồm:
 ```env
@@ -120,9 +122,8 @@ npm run dev:backend
 - `POST /api/users/register` - Đăng ký bằng email và mật khẩu
 - `POST /api/users/login` - Đăng nhập bằng email và mật khẩu
 - `POST /api/users/search-history` - Lưu lịch sử tìm kiếm
-- `POST /api/users/request-otp` - Yêu cầu gửi OTP quên mật khẩu tới email tài khoản
-- `POST /api/users/verify-otp` - Xác thực mã OTP
-- `POST /api/users/reset-password` - Đặt lại mật khẩu mới
+- `POST /api/users/request-password-reset` - Gửi link đặt lại mật khẩu tới email tài khoản
+- `POST /api/users/reset-password` - Đặt lại mật khẩu bằng token trong link
 - `POST /api/users/search-history` - Lưu lịch sử tìm kiếm
 - `GET /api/users/favorites` - Lấy danh sách địa điểm yêu thích (Protected)
 - `POST /api/users/favorites` - Thêm địa điểm vào danh sách yêu thích (Protected)
@@ -130,9 +131,9 @@ npm run dev:backend
 
 ## 🎯 Tính năng
 
-- **Auth:** Đăng ký/Đăng nhập, Google OAuth, Email OTP, JWT Session không văng khi rớt mạng.
-- **Tài khoản:** Email là định danh đăng nhập và địa chỉ nhận OTP; không cần số điện thoại hoặc SMS.
-- **Khôi phục mật khẩu:** Backend tạo OTP, gửi qua Gmail API, xác minh mã và cập nhật mật khẩu MongoDB.
+- **Auth:** Đăng ký/Đăng nhập, Google OAuth, khôi phục mật khẩu qua email, JWT Session không văng khi rớt mạng.
+- **Tài khoản:** Email là định danh đăng nhập và địa chỉ nhận link đặt lại mật khẩu; không cần số điện thoại hoặc SMS.
+- **Khôi phục mật khẩu:** Backend gửi link một lần qua Gmail API, kiểm tra token và cập nhật mật khẩu MongoDB.
 - **Thời tiết:** Tìm kiếm chỉ số real-time, tích hợp bản đồ & cache MongoDB tối ưu speed.
 - **Đồng bộ:** Lưu lịch sử tìm kiếm và danh sách địa điểm yêu thích theo tài khoản.
 - **Bảo mật:** Rate Limiting chống spam API & Winston Logger ghi log JSON chuẩn Production.

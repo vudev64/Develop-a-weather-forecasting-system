@@ -5,12 +5,12 @@
 - [ ] Bổ sung field thiếu trong `User` model: `email`, `googleId`, `picture`, `fullName`, `favorites[]`
 - [ ] Implement favorites API: GET/POST/DELETE `/api/users/favorites`
 - [ ] Trả `searchHistory` trong `getCurrentUser` (`GET /api/auth/me`)
-- [ ] Xóa dead code OTP ở cuối `authController.js`
+- [x] Xóa comment OTP cũ khỏi `authController.js`
 - [ ] `App.jsx`: chỉ logout khi token hết hạn (401/403), không logout khi lỗi mạng
 
 ## Medium Priority
 
-- [ ] Rate limit cho `/api/users/request-otp`, `/login`, `/register`, `/reset-password`
+- [ ] Rate limit cho `/api/users/request-password-reset`, `/login`, `/register`, `/reset-password`
 - [ ] Tạo `backend/.env.example`
 - [ ] Xóa comment chứa app password trong `authController.js`
 - [ ] Rà soát CORS và Google OAuth callback URL (Staging/Production)

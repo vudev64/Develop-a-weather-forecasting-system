@@ -21,23 +21,37 @@ const getSafeGoogleErrorCode = (error) => {
     : undefined;
 };
 
-export const sendPasswordResetOtp = async ({ email, otp, expiresInMinutes }) => {
+export const sendPasswordResetLink = async ({ email, resetToken, expiresInMinutes }) => {
   const clientId = process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
   const senderEmail = process.env.GMAIL_SENDER_EMAIL;
+  const frontendUrl = process.env.FRONTEND_URL;
 
-  if (!clientId || !clientSecret || !refreshToken || !senderEmail) {
+  if (!clientId || !clientSecret || !refreshToken || !senderEmail || !frontendUrl) {
     const error = new Error('Gmail API is not configured');
     error.code = 'GMAIL_CONFIG_MISSING';
     throw error;
   }
 
-  if (!EMAIL_REGEX.test(senderEmail) || !EMAIL_REGEX.test(email) || !/^\d{6}$/.test(otp)) {
-    const error = new Error('Invalid email or OTP parameters');
+  if (!EMAIL_REGEX.test(senderEmail) || !EMAIL_REGEX.test(email) || !/^[a-f\d]{64}$/i.test(resetToken)) {
+    const error = new Error('Invalid email or password reset token');
     error.code = 'GMAIL_INVALID_PARAMETERS';
     throw error;
   }
+
+  let resetUrl;
+  try {
+    resetUrl = new URL('/reset-password', frontendUrl);
+    if (!['http:', 'https:'].includes(resetUrl.protocol)) {
+      throw new Error('Unsupported URL protocol');
+    }
+  } catch {
+    const error = new Error('Frontend URL is invalid');
+    error.code = 'PASSWORD_RESET_URL_INVALID';
+    throw error;
+  }
+  resetUrl.hash = `token=${resetToken}`;
 
   const oauthClient = new OAuth2Client(clientId, clientSecret);
   oauthClient.setCredentials({ refresh_token: refreshToken });
@@ -61,11 +75,16 @@ export const sendPasswordResetOtp = async ({ email, otp, expiresInMinutes }) => 
   const message = [
     `From: ${senderEmail}`,
     `To: ${email}`,
-    'Subject: WeatherWeb password reset code',
+    'Subject: Reset your WeatherWeb password',
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset="UTF-8"',
     '',
-    `Your WeatherWeb password reset code is ${otp}. It expires in ${expiresInMinutes} minutes.`,
+    'We received a request to reset your WeatherWeb password.',
+    '',
+    `Open this link to choose a new password: ${resetUrl.toString()}`,
+    '',
+    `This link expires in ${expiresInMinutes} minutes and can only be used once.`,
+    'If you did not request a password reset, you can ignore this email.',
   ].join('\r\n');
 
   const response = await fetch(

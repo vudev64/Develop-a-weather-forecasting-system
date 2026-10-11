@@ -118,23 +118,13 @@ export const authService = {
     }
   },
 
-  resetPassword: async (email, newPassword, otp) =>
-    postJson(ENDPOINTS.USERS.RESET_PASSWORD, {
-      email,
-      newPassword,
-      otp,
-    }),
+  resetPassword: async (token, newPassword) =>
+    postJson(ENDPOINTS.USERS.RESET_PASSWORD, { token, newPassword }),
 
-  requestOtp: async (email, options = {}) =>
+  requestPasswordReset: async (email, options = {}) =>
     postJson(
-      ENDPOINTS.USERS.REQUEST_OTP,
+      ENDPOINTS.USERS.REQUEST_PASSWORD_RESET,
       { email },
       { signal: options.signal }
     ),
-
-  verifyOtp: async (email, otp) =>
-    postJson(ENDPOINTS.USERS.VERIFY_OTP, {
-      email,
-      otp,
-    }),
 };

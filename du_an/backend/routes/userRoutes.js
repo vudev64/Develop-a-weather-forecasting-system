@@ -3,23 +3,21 @@ import {
   login, 
   register, 
   saveSearchHistory, 
-  requestOtp, 
-  verifyOtp, 
+  requestPasswordReset,
   resetPassword,
   getFavorites,
   addFavorite,
   removeFavorite
 } from '../controllers/userController.js';
 import { requireAuth } from '../middleware/auth.js'; 
-import { otpLimiter, authLimiter } from '../middleware/rateLimiter.js'; 
+import { passwordResetLimiter, authLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
-// 1. PUBLIC ROUTES (Gắn Auth/OTP Limiter)
+// 1. PUBLIC ROUTES
 router.post('/register', authLimiter, register);
 router.post('/login', authLimiter, login);
-router.post('/request-otp', otpLimiter, requestOtp); // 🛡️ Giới hạn gửi OTP
-router.post('/verify-otp', authLimiter, verifyOtp);
+router.post('/request-password-reset', passwordResetLimiter, requestPasswordReset);
 router.post('/reset-password', authLimiter, resetPassword);
 router.post('/search-history', saveSearchHistory);
 

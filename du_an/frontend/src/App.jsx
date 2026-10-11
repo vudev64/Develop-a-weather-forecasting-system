@@ -5,6 +5,7 @@ import PublicHome from './PublicHome'
 import Dashboard from './Dashboard'
 import LoginModal from './LoginModal'
 import ProtectedRoute from './components/ProtectedRoute'
+import ResetPasswordPage from './components/auth/ResetPasswordPage.jsx'
 import { authService } from './services/authService.js'
 
 const AuthContext = createContext(null)
@@ -163,6 +164,7 @@ function AppRoutes() {
       ) : null}
 
       <Routes>
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
           path="/"
           element={isAuthenticated ? <Navigate to="/dashboard" replace /> : (

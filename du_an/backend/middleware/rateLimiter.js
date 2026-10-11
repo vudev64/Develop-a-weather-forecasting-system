@@ -12,19 +12,19 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// 2. Giới hạn nghiêm ngặt cho gửi OTP qua email
-export const otpLimiter = rateLimit({
+// 2. Giới hạn yêu cầu gửi link đặt lại mật khẩu
+export const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 giờ
-  max: 5, // Tối đa 5 lần gửi OTP trong 1 giờ/IP
+  max: 5, // Tối đa 5 yêu cầu trong 1 giờ/IP
   message: {
     success: false,
-    error: 'Bạn đã yêu cầu gửi OTP quá nhiều lần. Vui lòng thử lại sau 1 giờ.',
+    error: 'Bạn đã yêu cầu đặt lại mật khẩu quá nhiều lần. Vui lòng thử lại sau 1 giờ.',
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// 3. Giới hạn cho Đăng nhập / Đăng ký / Reset Password (Chống Brute-Force)
+// 3. Giới hạn cho đăng nhập, đăng ký và đặt lại mật khẩu.
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 phút
   max: 10, // Tối đa 10 lần thử trong 15 phút/IP

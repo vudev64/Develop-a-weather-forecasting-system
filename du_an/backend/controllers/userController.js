@@ -2,10 +2,10 @@ import User from '../models/User.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { sendPasswordResetOtp } from '../services/gmail.js';
+import { sendPasswordResetLink } from '../services/gmail.js';
 
 // CẤU HÌNH
-const OTP_TTL_MINUTES = 10;
+const PASSWORD_RESET_TTL_MINUTES = 30;
 const HISTORY_LIMIT = 20;
 
 // VALIDATION
@@ -29,22 +29,12 @@ const isValidCity = (city) => CITY_REGEX.test(String(city || '').trim());
 const normalizeCity = (city) => String(city || '').trim();
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
-const hashOtp = (otp) => {
+const hashPasswordResetToken = (token) => {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET không được cấu hình');
   }
-  return crypto.createHmac('sha256', process.env.JWT_SECRET).update(String(otp)).digest('hex');
+  return crypto.createHmac('sha256', process.env.JWT_SECRET).update(String(token)).digest('hex');
 };
-const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
-
-const matchesOtp = (otp, storedHash) => {
-  if (typeof storedHash !== 'string' || !/^[a-f\d]{64}$/i.test(storedHash)) {
-    return false;
-  }
-  return crypto.timingSafeEqual(Buffer.from(hashOtp(otp), 'hex'), Buffer.from(storedHash, 'hex'));
-};
-
-const isOtpExpired = (expiresAt) => !expiresAt || new Date(expiresAt).getTime() < Date.now();
 
 const buildSuccess = (res, { data = null, message = 'OK', status = 200, token }) => {
   return res.status(status).json({
@@ -152,8 +142,8 @@ export const login = async (req, res) => {
   }
 };
 
-// 3. GỬI OTP 
-export const requestOtp = async (req, res) => {
+// 3. GỬI LINK ĐẶT LẠI MẬT KHẨU
+export const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
     const normalizedEmail = normalizeEmail(email);
@@ -163,144 +153,78 @@ export const requestOtp = async (req, res) => {
     }
 
     const user = await User.findOne({ email: normalizedEmail });
-
     if (!user) {
-      return buildError(res, 404, 'Không tìm thấy tài khoản với thông tin này');
+      return buildSuccess(res, {
+        message: 'Nếu email đã đăng ký, bạn sẽ nhận được link đặt lại mật khẩu.',
+      });
     }
 
-    const otp = generateOtp();
-    const otpExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
-    user.passwordResetOtpHash = hashOtp(otp);
-    user.passwordResetOtpExpiresAt = otpExpiresAt;
-    user.passwordResetOtpVerifiedAt = null;
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.passwordResetTokenHash = hashPasswordResetToken(resetToken);
+    user.passwordResetExpiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000);
     await user.save();
 
     try {
-      await sendPasswordResetOtp({
+      await sendPasswordResetLink({
         email: user.email,
-        otp,
-        expiresInMinutes: OTP_TTL_MINUTES,
+        resetToken,
+        expiresInMinutes: PASSWORD_RESET_TTL_MINUTES,
       });
 
       return buildSuccess(res, {
-        message: 'OTP đã được gửi đến email của bạn',
-        data: {
-          email: user.email,
-          expiresInMinutes: OTP_TTL_MINUTES,
-        },
+        message: 'Nếu email đã đăng ký, bạn sẽ nhận được link đặt lại mật khẩu.',
       });
     } catch (gmailError) {
-      user.passwordResetOtpHash = undefined;
-      user.passwordResetOtpExpiresAt = undefined;
-      user.passwordResetOtpVerifiedAt = undefined;
+      user.passwordResetTokenHash = undefined;
+      user.passwordResetExpiresAt = undefined;
       await user.save();
-      console.error('Gmail API gửi OTP thất bại:', {
+      console.error('Gmail API gửi link đặt lại mật khẩu thất bại:', {
         stage: gmailError.stage || 'oauth_token',
         code: gmailError.code || 'GMAIL_SEND_FAILED',
         reason: gmailError.reason,
       });
-      return buildError(res, 502, 'Không thể gửi OTP lúc này. Vui lòng thử lại sau.');
+      return buildError(res, 502, 'Không thể gửi link đặt lại mật khẩu lúc này. Vui lòng thử lại sau.');
     }
   } catch (error) {
-    console.error('Lỗi request OTP:', error.code || 'OTP_REQUEST_FAILED');
-    return buildError(res, 500, 'Không thể gửi OTP lúc này.');
+    console.error('Lỗi yêu cầu đặt lại mật khẩu:', error.code || 'PASSWORD_RESET_REQUEST_FAILED');
+    return buildError(res, 500, 'Không thể gửi link đặt lại mật khẩu lúc này.');
   }
 };
 
-// 4. XÁC THỰC OTP
-export const verifyOtp = async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-    const normalizedEmail = normalizeEmail(email);
-    const sanitizedOtp = String(otp || '').trim();
-
-    if (!isValidEmail(normalizedEmail) || !/^\d{6}$/.test(sanitizedOtp)) {
-      return buildError(res, 400, 'Vui lòng cung cấp email và OTP 6 chữ số hợp lệ');
-    }
-
-    const user = await User.findOne({ email: normalizedEmail }).select(
-      '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt'
-    );
-
-    if (!user) {
-      return buildError(res, 400, 'Email này chưa yêu cầu cấp mã OTP');
-    }
-
-    if (!user.passwordResetOtpExpiresAt) {
-      return buildError(res, 400, 'OTP không hợp lệ hoặc chưa được yêu cầu');
-    }
-
-    if (isOtpExpired(user.passwordResetOtpExpiresAt)) {
-      return buildError(res, 400, 'OTP đã hết hạn');
-    }
-
-    if (!matchesOtp(sanitizedOtp, user.passwordResetOtpHash)) {
-      return buildError(res, 400, 'OTP không chính xác');
-    }
-
-    user.passwordResetOtpHash = hashOtp(sanitizedOtp);
-    user.passwordResetOtpVerifiedAt = new Date();
-    await user.save();
-
-    return buildSuccess(res, {
-      message: 'OTP hợp lệ',
-      data: {
-        email: user.email,
-        verifiedAt: user.passwordResetOtpVerifiedAt,
-      },
-    });
-  } catch (error) {
-    console.error('Lỗi verify OTP:', error.code || 'OTP_VERIFY_FAILED');
-    return buildError(res, 500, 'Không thể xác thực OTP');
-  }
-};
-// 5. ĐẶT LẠI MẬT KHẨU
+// 4. ĐẶT LẠI MẬT KHẨU
 export const resetPassword = async (req, res) => {
   try {
-    const { email, newPassword, otp } = req.body;
-    const normalizedEmail = normalizeEmail(email);
-    const sanitizedOtp = String(otp || '').trim();
+    const { token, newPassword } = req.body;
 
-    if (!isValidEmail(normalizedEmail) || !isValidPassword(newPassword) || !/^\d{6}$/.test(sanitizedOtp)) {
-      return buildError(res, 400, 'Vui lòng cung cấp email, OTP hợp lệ và mật khẩu đủ mạnh');
+    if (typeof token !== 'string' || !/^[a-f\d]{64}$/i.test(token) || !isValidPassword(newPassword)) {
+      return buildError(res, 400, 'Link đặt lại mật khẩu không hợp lệ hoặc mật khẩu chưa đủ mạnh');
     }
 
-    const user = await User.findOne({ email: normalizedEmail }).select(
-      '+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpVerifiedAt +password'
-    );
-    if (!user) {
-      return buildError(res, 404, 'Không tìm thấy tài khoản với email này');
-    }
-
-    if (!user.passwordResetOtpHash || !user.passwordResetOtpExpiresAt
-      || !user.passwordResetOtpVerifiedAt) {
-      return buildError(res, 400, 'OTP chưa được xác thực');
-    }
-
-    if (isOtpExpired(user.passwordResetOtpExpiresAt)) {
-      return buildError(res, 400, 'OTP đã hết hạn');
-    }
-
-    if (!matchesOtp(sanitizedOtp, user.passwordResetOtpHash)) {
-      return buildError(res, 400, 'OTP không chính xác');
-    }
-
+    const tokenHash = hashPasswordResetToken(token);
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    user.passwordResetOtpHash = undefined;
-    user.passwordResetOtpExpiresAt = undefined;
-    user.passwordResetOtpVerifiedAt = undefined;
-    await user.save();
+    const result = await User.updateOne(
+      {
+        passwordResetTokenHash: tokenHash,
+        passwordResetExpiresAt: { $gt: new Date() },
+      },
+      {
+        $set: { password: hashedPassword },
+        $unset: {
+          passwordResetTokenHash: '',
+          passwordResetExpiresAt: '',
+        },
+      }
+    );
+
+    if (result.modifiedCount !== 1) {
+      return buildError(res, 400, 'Link đặt lại mật khẩu không hợp lệ, đã hết hạn hoặc đã được sử dụng');
+    }
 
     return buildSuccess(res, {
       message: 'Đặt lại mật khẩu thành công',
-      data: {
-        email: user.email,
-        resetAt: new Date().toISOString(),
-      },
     });
   } catch (error) {
-    console.error('❌ Lỗi reset mật khẩu:', error.code || 'PASSWORD_RESET_FAILED');
+    console.error('Lỗi đặt lại mật khẩu:', error.code || 'PASSWORD_RESET_FAILED');
     return buildError(res, 500, 'Lỗi server');
   }
 };

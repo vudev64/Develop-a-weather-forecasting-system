@@ -4,10 +4,9 @@ import { authService } from '../../services/authService.js'
 function ForgotPasswordForm({
   scope = 'modal',
   onBackToLogin,
+  resetToken = '',
 }) {
-  const [step, setStep] = useState(1) // 1: Request OTP, 2: Verify OTP, 3: Reset Password
   const [email, setEmail] = useState('')
-  const [otp, setOtp] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,52 +20,39 @@ function ForgotPasswordForm({
   const submitButtonClass = scope === 'modal' ? 'modal-login-button' : 'login-button'
   const errorClass = scope === 'modal' ? 'modal-error-message' : 'error-message'
 
-  const handleRequestOtp = async (e) => {
-    e.preventDefault()
+  const handleRequestReset = async (event) => {
+    event.preventDefault()
     setLoading(true)
     setError('')
+    setSuccess('')
+
     try {
-      await authService.requestOtp(email)
-      setSuccess('Mã OTP đã được gửi đến email của bạn.')
-      setStep(2)
-    } catch (err) {
-      setError(err.message || 'Không thể gửi mã OTP. Vui lòng thử lại.')
+      await authService.requestPasswordReset(email)
+      setSuccess('Nếu email đã đăng ký, bạn sẽ nhận được link đặt lại mật khẩu.')
+    } catch (requestError) {
+      setError(requestError.message || 'Không thể gửi link đặt lại mật khẩu. Vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      await authService.verifyOtp(email, otp)
-      setSuccess('Xác thực mã OTP thành công. Vui lòng nhập mật khẩu mới.')
-      setStep(3)
-    } catch (err) {
-      setError(err.message || 'Mã OTP không đúng hoặc đã hết hạn.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const handleResetPassword = async (event) => {
+    event.preventDefault()
 
-  const handleResetPassword = async (e) => {
-    e.preventDefault()
     if (newPassword !== confirmPassword) {
       setError('Mật khẩu xác nhận không khớp.')
       return
     }
+
     setLoading(true)
     setError('')
+    setSuccess('')
+
     try {
-      await authService.resetPassword(email, newPassword, otp)
-      setSuccess('Đổi mật khẩu thành công! Bạn có thể đăng nhập ngay bây giờ.')
-      setTimeout(() => {
-        onBackToLogin()
-      }, 2000)
-    } catch (err) {
-      setError(err.message || 'Có lỗi xảy ra khi đặt lại mật khẩu.')
+      await authService.resetPassword(resetToken, newPassword)
+      setSuccess('Đổi mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.')
+    } catch (requestError) {
+      setError(requestError.message || 'Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.')
     } finally {
       setLoading(false)
     }
@@ -77,103 +63,82 @@ function ForgotPasswordForm({
       {error && <div className={errorClass}>{error}</div>}
       {success && <div className="success-message" style={{ color: 'green', marginBottom: '10px' }}>{success}</div>}
 
-      {step === 1 && (
-        <form onSubmit={handleRequestOtp} autoComplete="off">
-          <div className={inputGroupClass}>
-            <label>Email tài khoản</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-              placeholder="example@gmail.com"
-              autoComplete="email"
-            />
-          </div>
-          <button type="submit" className={submitButtonClass} disabled={loading}>
-            {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
-          </button>
-        </form>
-      )}
+      {resetToken ? (
+        success ? null : (
+          <form onSubmit={handleResetPassword} autoComplete="off">
+            <div className={inputGroupClass}>
+              <label>Mật khẩu mới</label>
+              <div className={passwordGroupClass}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                  placeholder="Nhập mật khẩu mới"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className={togglePasswordClass}
+                  onClick={() => setShowPassword((current) => !current)}
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+            </div>
 
-      {step === 2 && (
-        <form onSubmit={handleVerifyOtp} autoComplete="off">
-          <div className={inputGroupClass}>
-            <label>Nhập mã OTP (6 số)</label>
-            <input
-              type="text"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              required
-              disabled={loading}
-              placeholder="123456"
-              maxLength={6}
-            />
-          </div>
-          <button type="submit" className={submitButtonClass} disabled={loading}>
-            {loading ? 'Đang xác thực...' : 'Xác thực OTP'}
-          </button>
-          <button 
-            type="button" 
-            className="text-button" 
-            onClick={() => setStep(1)} 
-            style={{ marginTop: '10px', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            Quay lại bước trước
-          </button>
-        </form>
-      )}
+            <div className={inputGroupClass}>
+              <label>Xác nhận mật khẩu</label>
+              <div className={passwordGroupClass}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                  placeholder="Nhập lại mật khẩu"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
 
-      {step === 3 && (
-        <form onSubmit={handleResetPassword} autoComplete="off">
-          <div className={inputGroupClass}>
-            <label>Mật khẩu mới</label>
-            <div className={passwordGroupClass}>
+            <p>Mật khẩu cần có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</p>
+            <button type="submit" className={submitButtonClass} disabled={loading}>
+              {loading ? 'Đang cập nhật...' : 'Đặt lại mật khẩu'}
+            </button>
+          </form>
+        )
+      ) : (
+        !success && (
+          <form onSubmit={handleRequestReset} autoComplete="off">
+            <div className={inputGroupClass}>
+              <label>Email tài khoản</label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 required
                 disabled={loading}
-                minLength={8}
-                placeholder="Nhập mật khẩu mới"
-              />
-              <button
-                type="button"
-                className={togglePasswordClass}
-                onClick={() => setShowPassword((current) => !current)}
-              >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
-              </button>
-            </div>
-          </div>
-
-          <div className={inputGroupClass}>
-            <label>Xác nhận mật khẩu</label>
-            <div className={passwordGroupClass}>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                disabled={loading}
-                minLength={8}
-                placeholder="Nhập lại mật khẩu mới"
+                placeholder="example@gmail.com"
+                autoComplete="email"
               />
             </div>
-          </div>
-
-          <button type="submit" className={submitButtonClass} disabled={loading}>
-            {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
-          </button>
-        </form>
+            <button type="submit" className={submitButtonClass} disabled={loading}>
+              {loading ? 'Đang gửi...' : 'Gửi link đặt lại mật khẩu'}
+            </button>
+          </form>
+        )
       )}
 
       {onBackToLogin && (
         <div className={scope === 'modal' ? 'modal-switch-mode' : 'switch-mode'}>
           <p>
-            <span onClick={onBackToLogin} style={{ cursor: 'pointer', color: '#2563eb' }}>Quay lại Đăng Nhập</span>
+            <span onClick={onBackToLogin} style={{ cursor: 'pointer', color: '#2563eb' }}>
+              Quay lại Đăng Nhập
+            </span>
           </p>
         </div>
       )}

@@ -170,5 +170,4 @@ export const logout = async (req, res) => {
   }
 };
 
-// OTP ĐÃ ĐƯỢC CHUYỂN SANG userController.js
-// Các hàm requestOtp, verifyOtp, resetPassword hiện nằm ở userController.js
+// Password reset handlers are defined in userController.js.
