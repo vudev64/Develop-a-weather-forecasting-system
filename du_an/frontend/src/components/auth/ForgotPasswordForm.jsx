@@ -13,6 +13,7 @@ function ForgotPasswordForm({
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const inputGroupClass = scope === 'modal' ? 'modal-form-group' : 'form-group'
   const passwordGroupClass = scope === 'modal' ? 'modal-password-group' : 'password-input-group'
@@ -79,13 +80,14 @@ function ForgotPasswordForm({
                   placeholder="Nhập mật khẩu mới"
                   autoComplete="new-password"
                 />
-                  <button
-              type="button"
-              className={togglePasswordClass}
-              onClick={() => setShowPassword((current) => !current)}
-            >
-              {showPassword ? 'Ẩn mật khẩu' : '👁 Hiện cả hai mật khẩu'}
-            </button>
+                <button
+                  type="button"
+                  className={togglePasswordClass}
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                👁️
+                </button>
               </div>
             </div>
 
@@ -93,7 +95,7 @@ function ForgotPasswordForm({
               <label>Xác nhận mật khẩu</label>
               <div className={passwordGroupClass}>
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   required
@@ -102,6 +104,14 @@ function ForgotPasswordForm({
                   placeholder="Nhập lại mật khẩu"
                   autoComplete="new-password"
                 />
+                <button
+                  type="button"
+                  className={togglePasswordClass}
+                  onClick={() => setShowConfirmPassword((current) => !current)}
+                  aria-label={showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
+                >
+                  {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
               </div>
             </div>
 

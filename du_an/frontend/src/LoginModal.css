@@ -133,11 +133,14 @@
 .modal-password-group input {
   padding-right: 45px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .modal-toggle-password {
   position: absolute;
   right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
@@ -151,7 +154,7 @@
 }
 
 .modal-toggle-password:hover {
-  color: #d1d5db;
+  color: #6b7280;
 }
 
 .modal-login-button {
